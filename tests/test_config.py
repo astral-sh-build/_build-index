@@ -9,7 +9,7 @@ CONFIG = ROOT / "config" / "index.toml"
 ASTRAL_SH_BUILD_CONFIG = ROOT / "config" / "astral-sh-build.toml"
 
 
-def test_active_config_starts_without_repositories() -> None:
+def test_active_config_has_representative_repositories() -> None:
     config = load_config(CONFIG)
 
     assert config.site.base_url == "https://build-index.invalid"
@@ -22,7 +22,11 @@ def test_active_config_starts_without_repositories() -> None:
         "cu129",
         "cu130",
     }
-    assert config.repositories == ()
+    assert [repository.repository for repository in config.repositories] == [
+        "astral-sh-build/build-flash-attention-3",
+        "astral-sh-build/build-vllm",
+    ]
+    assert all(repository.channels is None for repository in config.repositories)
 
 
 def test_real_producer_evaluation_config() -> None:
