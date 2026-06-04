@@ -29,9 +29,10 @@ wheels further, but repositories do not need to enumerate their normal output
 channels.
 
 [`config/index.toml`](config/index.toml) is the active production configuration.
-It initially admits no repositories; producers will be added incrementally.
+It admits the build repositories confirmed against the live hardware registries
+in the Astral Pyx workspace.
 [`config/astral-sh-build.toml`](config/astral-sh-build.toml) is an evaluation
-inventory and is not used by the Pages workflow.
+inventory used to review the active production list.
 
 ## Commands
 

@@ -34,5 +34,95 @@ name = "cu130"
 description = "CUDA 13.0 builds"
 
 # Repository entries admit a producer and its projects. Channels are inferred
-# from each wheel and checked against the global channel list above. Production
-# repositories will be admitted incrementally.
+# from each wheel and checked against the global channel list above.
+[[repository]]
+repository = "astral-sh-build/build-adan"
+projects = ["adan"]
+
+[[repository]]
+repository = "astral-sh-build/build-apex"
+projects = ["apex"]
+
+[[repository]]
+repository = "astral-sh-build/build-causal-conv1d"
+projects = ["causal-conv1d"]
+
+[[repository]]
+repository = "astral-sh-build/build-deepep"
+projects = ["deep-ep"]
+
+[[repository]]
+repository = "astral-sh-build/build-deepgemm"
+projects = ["deep-gemm"]
+
+[[repository]]
+repository = "astral-sh-build/build-deepspeed"
+projects = ["deepspeed"]
+
+[[repository]]
+repository = "astral-sh-build/build-detectron2"
+projects = ["detectron2"]
+
+[[repository]]
+repository = "astral-sh-build/build-ffmpeg"
+projects = ["ffmpeg"]
+
+[[repository]]
+repository = "astral-sh-build/build-flash-attention"
+projects = ["flash-attn"]
+
+[[repository]]
+repository = "astral-sh-build/build-flash-attention-3"
+projects = ["flash-attn-3"]
+
+[[repository]]
+repository = "astral-sh-build/build-grouped-gemm"
+projects = ["grouped-gemm"]
+
+[[repository]]
+repository = "astral-sh-build/build-mamba"
+projects = ["mamba-ssm"]
+
+[[repository]]
+repository = "astral-sh-build/build-megablocks"
+projects = ["megablocks"]
+
+[[repository]]
+repository = "astral-sh-build/build-mmcv"
+projects = ["mmcv"]
+
+[[repository]]
+repository = "astral-sh-build/build-nvmolkit"
+projects = ["nvmolkit"]
+
+[[repository]]
+repository = "astral-sh-build/build-opencv"
+projects = ["opencv-contrib-python-headless", "opencv-python-headless"]
+
+[[repository]]
+repository = "astral-sh-build/build-pycuda"
+projects = ["pycuda"]
+
+[[repository]]
+repository = "astral-sh-build/build-pytorch-scatter"
+projects = ["torch-scatter"]
+
+[[repository]]
+repository = "astral-sh-build/build-pytorch3d"
+projects = ["pytorch3d"]
+
+[[repository]]
+repository = "astral-sh-build/build-sageattention"
+projects = ["sageattention"]
+
+[[repository]]
+repository = "astral-sh-build/build-sageattention3"
+projects = ["sageattn3"]
+
+[[repository]]
+repository = "astral-sh-build/build-transformer-engine-torch"
+projects = ["transformer-engine-torch"]
+
+[[repository]]
+repository = "astral-sh-build/build-vllm"
+projects = ["vllm"]
