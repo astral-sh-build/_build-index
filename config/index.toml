@@ -36,10 +36,3 @@ description = "CUDA 13.0 builds"
 # Repository entries admit a producer and its projects. Channels are inferred
 # from each wheel and checked against the global channel list above. Production
 # repositories will be admitted incrementally.
-[[repository]]
-repository = "astral-sh-build/build-flash-attention-3"
-projects = ["flash-attn-3"]
-
-[[repository]]
-repository = "astral-sh-build/build-vllm"
-projects = ["vllm"]
