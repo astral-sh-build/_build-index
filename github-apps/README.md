@@ -5,7 +5,7 @@ producer repositories:
 
 | App | Installed on | Permission | Purpose |
 | --- | --- | --- | --- |
-| `astral-build-index-reader` | Approved producer repositories | `Contents: Read` | Allows `_build-index` to list releases and download release assets |
+| `build-index-reader` | Approved producer repositories | `Contents: Read` | Allows `_build-index` to list releases and download release assets |
 
 The reference GitHub App manifest is
 [`reader.manifest.json`](reader.manifest.json).
@@ -26,7 +26,7 @@ GitHub automatically discovers in a repository. A registration helper must:
 
 1. Add a temporary `redirect_url` to the selected manifest.
 2. POST the JSON-encoded manifest to:
-   `https://github.com/organizations/ee-test-builds/settings/apps/new`.
+   `https://github.com/organizations/astral-sh-build/settings/apps/new`.
 3. Receive GitHub's temporary `code` at the redirect URL.
 4. Exchange the code with `POST /app-manifests/{code}/conversions` within one
    hour.
@@ -35,10 +35,7 @@ GitHub automatically discovers in a repository. A registration helper must:
 
 The App name is a suggestion and may need to change because GitHub App names
 are globally unique. Because the App is private, it can only be installed on
-repositories owned by the account that registers it. The production App must
-therefore be owned by `astral-sh-build`. Update the manifest owner URL and
-registration URL when moving from the test organization to the production
-organization.
+repositories owned by `astral-sh-build`.
 
 ### Registration Helper
 
@@ -59,12 +56,7 @@ The helper:
 5. Prints the App installation URL and the commands needed to configure the
    `_build-index` Actions variable and secret.
 
-The default creates an App owned by `ee-test-builds` for the test repository.
-To register the production App:
-
-```bash
-uv run --locked python scripts/register_reader_app.py --owner astral-sh-build
-```
+The default creates an App owned by `astral-sh-build`.
 
 The script does not install the App or upload credentials automatically. The
 browser must be authenticated as a user allowed to create GitHub Apps for the
@@ -89,19 +81,17 @@ The Pages branch workflow uses the action before release collection:
 
 ```yaml
 - name: Create producer repository token
+  if: steps.producer-repositories.outputs.names != ''
   id: producer-token
   uses: ./actions/create-reader-token
   with:
     client-id: ${{ vars.BUILD_INDEX_READER_CLIENT_ID }}
     private-key: ${{ secrets.BUILD_INDEX_READER_PRIVATE_KEY }}
-    owner: ee-test-builds
-    repositories: |
-      build-index-test-cpu
-      build-index-test-gpu
-      build-index-test-mixed
+    owner: astral-sh-build
+    repositories: ${{ steps.producer-repositories.outputs.names }}
 
 - name: Collect producer releases
   env:
-    GH_TOKEN: ${{ steps.producer-token.outputs.token }}
+    GH_TOKEN: ${{ steps.producer-token.outputs.token || github.token }}
   run: uv run --locked build-index collect
 ```

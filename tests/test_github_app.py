@@ -63,15 +63,14 @@ def test_reader_token_action_requires_explicit_read_scope() -> None:
 def test_pages_workflow_uses_reader_token_for_admitted_repositories() -> None:
     workflow = PAGES_WORKFLOW.read_text(encoding="utf-8")
 
+    assert "Read producer repositories" in workflow
     assert "uses: ./actions/create-reader-token" in workflow
     assert "BUILD_INDEX_READER_CLIENT_ID" in workflow
     assert "BUILD_INDEX_READER_PRIVATE_KEY" in workflow
-    for repository in (
-        "build-index-test-cpu",
-        "build-index-test-gpu",
-        "build-index-test-mixed",
-    ):
-        assert f"            {repository}\n" in workflow
+    assert "owner: astral-sh-build" in workflow
+    assert "steps.producer-repositories.outputs.names != ''" in workflow
+    assert "steps.producer-repositories.outputs.names" in workflow
+    assert "steps.producer-token.outputs.token || github.token" in workflow
     assert "build-index collect" in workflow
     assert "build-index build" in workflow
     assert "Prepare pages branch worktree" in workflow
@@ -147,7 +146,7 @@ def test_registration_helper_waits_for_matching_callback(
 
     code = register_reader_app.wait_for_registration(
         manifest,
-        owner="ee-test-builds",
+        owner="astral-sh-build",
         repository="_build-index",
         port=0,
         timeout=1,

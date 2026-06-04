@@ -3,8 +3,6 @@ schema_version = 1
 [site]
 base_url = "https://build-index.invalid"
 
-# Initial channels reflect observed first-party build needs. A channel being
-# present does not imply that any package is currently published in it.
 [[channel]]
 name = "cpu"
 description = "CPU builds"
@@ -33,6 +31,14 @@ description = "CUDA 12.9 builds"
 name = "cu130"
 description = "CUDA 13.0 builds"
 
-# Repository entries admit a producer and its projects. Channels are inferred
-# from each wheel and checked against the global channel list above. Production
-# repositories will be admitted incrementally.
+[[repository]]
+repository = "example/build-index-test-cpu"
+projects = ["index-test-cpu"]
+
+[[repository]]
+repository = "example/build-index-test-gpu"
+projects = ["index-test-gpu"]
+
+[[repository]]
+repository = "example/build-index-test-mixed"
+projects = ["index-test-mixed"]

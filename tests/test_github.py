@@ -19,7 +19,7 @@ from build_index.github import (
 )
 
 ROOT = Path(__file__).parents[1]
-CONFIG = load_config(ROOT / "config" / "index.toml")
+CONFIG = load_config(ROOT / "tests" / "fixtures" / "index.toml")
 
 
 class FakeGitHubClient:
@@ -75,7 +75,7 @@ def release(
 def test_collect_release_assets_assigns_channels_and_ignores_non_wheels() -> None:
     client = FakeGitHubClient(
         {
-            "ee-test-builds/build-index-test-mixed": [
+            "example/build-index-test-mixed": [
                 release(
                     [
                         asset(
@@ -119,7 +119,7 @@ def test_collect_release_assets_preserves_historical_cuda_names() -> None:
     ]
     client = FakeGitHubClient(
         {
-            "ee-test-builds/build-index-test-gpu": [
+            "example/build-index-test-gpu": [
                 release(
                     [
                         asset(filenames[0], asset_id=10),
@@ -140,7 +140,7 @@ def test_collect_release_assets_preserves_historical_cuda_names() -> None:
 def test_collect_release_assets_infers_globally_configured_channel() -> None:
     filename = "index_test_gpu-0.1.0+cu129-py3-none-any.whl"
     client = FakeGitHubClient(
-        {"ee-test-builds/build-index-test-gpu": [release([asset(filename)])]}
+        {"example/build-index-test-gpu": [release([asset(filename)])]}
     )
 
     collection = collect_release_assets(CONFIG, client)
@@ -151,14 +151,14 @@ def test_collect_release_assets_infers_globally_configured_channel() -> None:
 def test_collect_release_assets_enforces_channel_restriction() -> None:
     repositories = tuple(
         replace(repository, channels=("cpu",))
-        if repository.repository == "ee-test-builds/build-index-test-gpu"
+        if repository.repository == "example/build-index-test-gpu"
         else repository
         for repository in CONFIG.repositories
     )
     config = replace(CONFIG, repositories=repositories)
     client = FakeGitHubClient(
         {
-            "ee-test-builds/build-index-test-gpu": [
+            "example/build-index-test-gpu": [
                 release([asset("index_test_gpu-0.1.0+cu128-py3-none-any.whl")])
             ]
         }
@@ -171,7 +171,7 @@ def test_collect_release_assets_enforces_channel_restriction() -> None:
 def test_collect_release_assets_rejects_incompatible_wheel() -> None:
     invalid = "index_test_gpu-1..0+hash+cu12.8torch2.8.0-py3-none-any.whl"
     client = FakeGitHubClient(
-        {"ee-test-builds/build-index-test-gpu": [release([asset(invalid)])]}
+        {"example/build-index-test-gpu": [release([asset(invalid)])]}
     )
 
     with pytest.raises(WheelCompatibilityError, match="invalid wheel filename"):
@@ -183,7 +183,7 @@ def test_collect_release_assets_normalizes_legacy_wheel_filename() -> None:
         "index_test_gpu-1.2.1+1300811+cu12.8torch2.10.0cxx11abiTRUE-py3-none-any.whl"
     )
     client = FakeGitHubClient(
-        {"ee-test-builds/build-index-test-gpu": [release([asset(source)])]}
+        {"example/build-index-test-gpu": [release([asset(source)])]}
     )
     messages: list[str] = []
 
@@ -200,7 +200,7 @@ def test_collect_release_assets_hashes_asset_when_digest_is_absent() -> None:
     api_url = "https://api.github.com/releases/assets/1"
     client = FakeGitHubClient(
         {
-            "ee-test-builds/build-index-test-gpu": [
+            "example/build-index-test-gpu": [
                 release(
                     [
                         asset(
@@ -265,7 +265,7 @@ def test_collect_release_assets_selects_highest_release_revision() -> None:
     filename = "index_test_gpu-0.1.0+cu128-py3-none-any.whl"
     client = FakeGitHubClient(
         {
-            "ee-test-builds/build-index-test-gpu": [
+            "example/build-index-test-gpu": [
                 release(
                     [asset(filename, asset_id=3, digest="sha256:" + "c" * 64)],
                     tag="0.1.0-r2",
@@ -293,7 +293,7 @@ def test_empty_higher_revision_removes_release_family_files() -> None:
     filename = "index_test_gpu-0.1.0+cu128-py3-none-any.whl"
     client = FakeGitHubClient(
         {
-            "ee-test-builds/build-index-test-gpu": [
+            "example/build-index-test-gpu": [
                 release([], tag="0.1.0-r1"),
                 release([asset(filename)], tag="0.1.0"),
             ]
@@ -306,7 +306,7 @@ def test_empty_higher_revision_removes_release_family_files() -> None:
 def test_collect_release_assets_ignores_drafts_and_prereleases() -> None:
     client = FakeGitHubClient(
         {
-            "ee-test-builds/build-index-test-gpu": [
+            "example/build-index-test-gpu": [
                 release(
                     [asset("index_test_gpu-0.1.0+cu128-py3-none-any.whl")],
                     draft=True,
@@ -326,7 +326,7 @@ def test_collect_release_assets_collapses_republished_filename() -> None:
     filename = "index_test_gpu-0.1.0+cu128-py3-none-any.whl"
     client = FakeGitHubClient(
         {
-            "ee-test-builds/build-index-test-gpu": [
+            "example/build-index-test-gpu": [
                 release([asset(filename, asset_id=1)], tag="0.1.0"),
                 release([asset(filename, asset_id=2)], tag="replacement"),
             ]
@@ -343,7 +343,7 @@ def test_collect_release_assets_collapses_republished_filename() -> None:
 def test_collect_release_assets_rejects_unconfigured_project() -> None:
     client = FakeGitHubClient(
         {
-            "ee-test-builds/build-index-test-gpu": [
+            "example/build-index-test-gpu": [
                 release([asset("other-0.1.0+cu128-py3-none-any.whl")])
             ]
         }
@@ -356,7 +356,7 @@ def test_collect_release_assets_rejects_unconfigured_project() -> None:
 def test_collect_release_assets_rejects_malformed_digest() -> None:
     client = FakeGitHubClient(
         {
-            "ee-test-builds/build-index-test-gpu": [
+            "example/build-index-test-gpu": [
                 release(
                     [
                         asset(

@@ -28,9 +28,10 @@ publish. A repository may provide an optional `channels` list to restrict its
 wheels further, but repositories do not need to enumerate their normal output
 channels.
 
-[`config/index.toml`](config/index.toml) is the active stand-in pilot.
+[`config/index.toml`](config/index.toml) is the active production configuration.
+It initially admits no repositories; producers will be added incrementally.
 [`config/astral-sh-build.toml`](config/astral-sh-build.toml) is an evaluation
-inventory for the real organization and is not used by the Pages workflow.
+inventory and is not used by the Pages workflow.
 
 ## Commands
 
@@ -86,10 +87,12 @@ described in [`github-apps/README.md`](github-apps/README.md). The workflow
 creates a short-lived token using
 [`actions/create-reader-token`](actions/create-reader-token/action.yml).
 
-The Pages workflow polls the stand-in repositories, builds the complete static
-tree, and replaces the `pages` branch. The branch is for review; wheel URLs
-still point to private GitHub Release assets. Public artifact storage and CDN
-publication remain separate future work.
+The Pages workflow derives its explicit GitHub App repository scope from the
+active configuration, polls those repositories, builds the complete static
+tree, and replaces the `pages` branch. With no configured repositories it
+publishes an empty index. The branch is for review; wheel URLs still point to
+private GitHub Release assets. Public artifact storage and CDN publication
+remain separate future work.
 
 ## Deferred Artifact Publication
 
