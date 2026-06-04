@@ -16,14 +16,14 @@ from build_index.collection import (
 
 def artifact(**overrides: object) -> CollectedArtifact:
     values = {
-        "repository": "ee-test-builds/build-index-test-gpu",
+        "repository": "example/build-index-test-gpu",
         "release": "0.1.0",
         "filename": "index_test_gpu-0.1.0+cu128-py3-none-any.whl",
         "project": "index-test-gpu",
         "version": "0.1.0+cu128",
         "channel": "cu128",
         "url": (
-            "https://github.com/ee-test-builds/build-index-test-gpu/releases/"
+            "https://github.com/example/build-index-test-gpu/releases/"
             "download/0.1.0/index_test_gpu-0.1.0%2Bcu128-py3-none-any.whl"
         ),
         "sha256": "a" * 64,
@@ -36,13 +36,13 @@ def artifact(**overrides: object) -> CollectedArtifact:
 
 def test_collection_round_trip_is_deterministic(tmp_path: Path) -> None:
     second = artifact(
-        repository="ee-test-builds/build-index-test-cpu",
+        repository="example/build-index-test-cpu",
         filename="index_test_cpu-0.1.0+cpu-py3-none-any.whl",
         project="index-test-cpu",
         version="0.1.0+cpu",
         channel="cpu",
         url=(
-            "https://github.com/ee-test-builds/build-index-test-cpu/releases/"
+            "https://github.com/example/build-index-test-cpu/releases/"
             "download/0.1.0/index_test_cpu-0.1.0%2Bcpu-py3-none-any.whl"
         ),
         sha256="b" * 64,
@@ -58,7 +58,7 @@ def test_collection_rejects_duplicate_index_filename() -> None:
     original = artifact()
     duplicate = replace(
         original,
-        repository="ee-test-builds/build-index-test-mixed",
+        repository="example/build-index-test-mixed",
         release="replacement",
     )
 

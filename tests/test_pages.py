@@ -12,7 +12,7 @@ from build_index.config import load_config
 from build_index.pages import build_pages
 
 ROOT = Path(__file__).parents[1]
-CONFIG = load_config(ROOT / "config" / "index.toml")
+CONFIG = load_config(ROOT / "tests" / "fixtures" / "index.toml")
 
 
 def artifact(
@@ -42,11 +42,11 @@ def artifact(
     )
 
 
-def pilot_collection():
+def example_collection():
     return collection_from_artifacts(
         [
             artifact(
-                "ee-test-builds/build-index-test-cpu",
+                "example/build-index-test-cpu",
                 "index_test_cpu-0.1.0+cpu-py3-none-any.whl",
                 "index-test-cpu",
                 "0.1.0+cpu",
@@ -55,7 +55,7 @@ def pilot_collection():
                 size=5001,
             ),
             artifact(
-                "ee-test-builds/build-index-test-gpu",
+                "example/build-index-test-gpu",
                 "index_test_gpu-0.1.0+cu128-py3-none-any.whl",
                 "index-test-gpu",
                 "0.1.0+cu128",
@@ -64,7 +64,7 @@ def pilot_collection():
                 size=5002,
             ),
             artifact(
-                "ee-test-builds/build-index-test-mixed",
+                "example/build-index-test-mixed",
                 "index_test_mixed-0.1.0+cpu-py3-none-any.whl",
                 "index-test-mixed",
                 "0.1.0+cpu",
@@ -73,7 +73,7 @@ def pilot_collection():
                 size=5003,
             ),
             artifact(
-                "ee-test-builds/build-index-test-mixed",
+                "example/build-index-test-mixed",
                 "index_test_mixed-0.1.0+cu128-py3-none-any.whl",
                 "index-test-mixed",
                 "0.1.0+cu128",
@@ -91,7 +91,7 @@ def test_build_pages_generates_only_landing_and_simple_api(tmp_path: Path) -> No
     build_pages(
         CONFIG,
         output,
-        collection=pilot_collection(),
+        collection=example_collection(),
         base_url="https://example.invalid/_build-index",
     )
 
@@ -128,7 +128,7 @@ def test_build_pages_generates_only_landing_and_simple_api(tmp_path: Path) -> No
             "size": 5002,
             "upload-time": "2026-06-02T17:13:12Z",
             "url": (
-                "https://github.com/ee-test-builds/build-index-test-gpu/releases/"
+                "https://github.com/example/build-index-test-gpu/releases/"
                 "download/0.1.0/"
                 "index_test_gpu-0.1.0%2Bcu128-py3-none-any.whl"
             ),
@@ -157,7 +157,7 @@ def test_build_pages_rejects_unconfigured_repository(tmp_path: Path) -> None:
     collection = collection_from_artifacts(
         [
             artifact(
-                "example/build-index-test-gpu",
+                "example/unconfigured",
                 "index_test_gpu-0.1.0+cu128-py3-none-any.whl",
                 "index-test-gpu",
                 "0.1.0+cu128",
@@ -178,6 +178,6 @@ def test_build_pages_replaces_output_tree(tmp_path: Path) -> None:
     stale.parent.mkdir()
     stale.write_text("stale")
 
-    build_pages(CONFIG, output, collection=pilot_collection())
+    build_pages(CONFIG, output, collection=example_collection())
 
     assert not stale.exists()

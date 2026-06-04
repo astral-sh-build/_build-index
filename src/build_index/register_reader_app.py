@@ -21,7 +21,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MANIFEST = ROOT / "github-apps" / "reader.manifest.json"
-DEFAULT_OWNER = "ee-test-builds"
+DEFAULT_OWNER = "astral-sh-build"
 DEFAULT_REPOSITORY = "_build-index"
 GITHUB_API_VERSION = "2026-03-10"
 GITHUB_API_URL = "https://api.github.com"

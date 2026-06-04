@@ -41,21 +41,46 @@ jobs:
       - name: Validate configuration
         run: uv run --locked build-index validate-config
 
+      - name: Read producer repositories
+        id: producer-repositories
+        run: |
+          repositories="$(
+            uv run --locked python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          config = tomllib.loads(
+              Path("config/index.toml").read_text(encoding="utf-8")
+          )
+          for entry in config.get("repository", []):
+              owner, repository = entry["repository"].split("/", 1)
+              if owner != "astral-sh-build":
+                  raise SystemExit(
+                      f"production repository must belong to astral-sh-build: "
+                      f"{entry['repository']}"
+                  )
+              print(repository)
+          PY
+          )"
+          {
+            echo "names<<EOF"
+            echo "$repositories"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create producer repository token
+        if: steps.producer-repositories.outputs.names != ''
         id: producer-token
         uses: ./actions/create-reader-token
         with:
           client-id: ${{ vars.BUILD_INDEX_READER_CLIENT_ID }}
           private-key: ${{ secrets.BUILD_INDEX_READER_PRIVATE_KEY }}
-          owner: ee-test-builds
-          repositories: |
-            build-index-test-cpu
-            build-index-test-gpu
-            build-index-test-mixed
+          owner: astral-sh-build
+          repositories: ${{ steps.producer-repositories.outputs.names }}
 
       - name: Collect producer releases
         env:
-          GH_TOKEN: ${{ steps.producer-token.outputs.token }}
+          GH_TOKEN: ${{ steps.producer-token.outputs.token || github.token }}
         run: uv run --locked build-index collect
 
       - name: Build index tree

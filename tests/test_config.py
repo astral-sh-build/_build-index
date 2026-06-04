@@ -9,7 +9,7 @@ CONFIG = ROOT / "config" / "index.toml"
 ASTRAL_SH_BUILD_CONFIG = ROOT / "config" / "astral-sh-build.toml"
 
 
-def test_pilot_config() -> None:
+def test_active_config_starts_without_repositories() -> None:
     config = load_config(CONFIG)
 
     assert config.site.base_url == "https://build-index.invalid"
@@ -22,12 +22,7 @@ def test_pilot_config() -> None:
         "cu129",
         "cu130",
     }
-    assert [repository.repository for repository in config.repositories] == [
-        "ee-test-builds/build-index-test-cpu",
-        "ee-test-builds/build-index-test-gpu",
-        "ee-test-builds/build-index-test-mixed",
-    ]
-    assert all(repository.channels is None for repository in config.repositories)
+    assert config.repositories == ()
 
 
 def test_real_producer_evaluation_config() -> None:
