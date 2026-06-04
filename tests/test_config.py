@@ -9,8 +9,9 @@ CONFIG = ROOT / "config" / "index.toml"
 ASTRAL_SH_BUILD_CONFIG = ROOT / "config" / "astral-sh-build.toml"
 
 
-def test_active_config_starts_without_repositories() -> None:
+def test_active_config_matches_validated_producer_inventory() -> None:
     config = load_config(CONFIG)
+    inventory = load_config(ASTRAL_SH_BUILD_CONFIG)
 
     assert config.site.base_url == "https://build-index.invalid"
     assert {channel.name for channel in config.channels} == {
@@ -22,7 +23,9 @@ def test_active_config_starts_without_repositories() -> None:
         "cu129",
         "cu130",
     }
-    assert config.repositories == ()
+    assert config.channels == inventory.channels
+    assert config.repositories == inventory.repositories
+    assert len(config.repositories) == 23
 
 
 def test_real_producer_evaluation_config() -> None:
