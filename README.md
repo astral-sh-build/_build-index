@@ -29,8 +29,7 @@ wheels further, but repositories do not need to enumerate their normal output
 channels.
 
 [`config/index.toml`](config/index.toml) is the active production configuration.
-Its initial producer set covers CPU-only and GPU-only release layouts.
-Additional producers will be added incrementally.
+It initially admits no repositories; producers will be added incrementally.
 [`config/astral-sh-build.toml`](config/astral-sh-build.toml) is an evaluation
 inventory and is not used by the Pages workflow.
 
