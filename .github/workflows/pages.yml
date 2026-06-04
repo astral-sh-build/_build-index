@@ -1,0 +1,89 @@
+name: Update pages branch
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  UV_DEFAULT_INDEX: https://pypi.org/simple
+
+concurrency:
+  group: pages-branch
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: "3.14"
+
+      - name: Sync environment
+        run: uv sync --locked --dev
+
+      - name: Validate configuration
+        run: uv run --locked build-index validate-config
+
+      - name: Create producer repository token
+        id: producer-token
+        uses: ./actions/create-reader-token
+        with:
+          client-id: ${{ vars.BUILD_INDEX_READER_CLIENT_ID }}
+          private-key: ${{ secrets.BUILD_INDEX_READER_PRIVATE_KEY }}
+          owner: ee-test-builds
+          repositories: |
+            build-index-test-cpu
+            build-index-test-gpu
+            build-index-test-mixed
+
+      - name: Collect producer releases
+        env:
+          GH_TOKEN: ${{ steps.producer-token.outputs.token }}
+        run: uv run --locked build-index collect
+
+      - name: Build index tree
+        run: uv run --locked build-index build
+
+      - name: Prepare pages branch worktree
+        env:
+          PAGES_BRANCH: pages
+        run: |
+          git fetch origin "$PAGES_BRANCH:refs/remotes/origin/$PAGES_BRANCH" || true
+          if git show-ref --verify --quiet "refs/remotes/origin/$PAGES_BRANCH"; then
+            git worktree add --detach ../pages-worktree "origin/$PAGES_BRANCH"
+          else
+            git worktree add -b "$PAGES_BRANCH" ../pages-worktree
+          fi
+
+      - name: Publish pages branch
+        env:
+          PAGES_BRANCH: pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rsync -a --delete --exclude .git dist/ ../pages-worktree/
+          cd ../pages-worktree
+          git add -A
+          if git diff --cached --quiet; then
+            echo "pages branch is already current"
+            exit 0
+          fi
+          git commit -m "Update generated index for $GITHUB_SHA"
+          git push origin "HEAD:$PAGES_BRANCH"

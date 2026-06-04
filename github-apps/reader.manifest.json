@@ -1,0 +1,12 @@
+{
+  "name": "astral-build-index-reader",
+  "url": "https://github.com/ee-test-builds/_build-index",
+  "description": "Read approved private producer releases for the Astral build wheel index.",
+  "public": false,
+  "request_oauth_on_install": false,
+  "setup_on_update": false,
+  "default_permissions": {
+    "contents": "read"
+  },
+  "default_events": []
+}
