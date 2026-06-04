@@ -383,8 +383,6 @@ def test_collect_release_assets_rejects_malformed_digest() -> None:
         ("1.0+cu.12.8.torch.2.8", ("cu128",), "cu128"),
         ("1.0+cu12.8torch2.8.0cxx11abiTRUE", ("cu128",), "cu128"),
         ("1.0+g2d5be1dd5.d20260219.cpu", ("cpu", "cu128"), "cpu"),
-        ("1.0", ("cpu", "pypi"), "pypi"),
-        ("1.0+vendor.1", ("pypi", "cu128"), "pypi"),
         ("1.0+rocm6.3", ("rocm6.3",), "rocm6.3"),
         ("1.0+xpu", ("xpu",), "xpu"),
     ],

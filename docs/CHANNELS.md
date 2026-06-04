@@ -12,7 +12,6 @@ restriction.
 
 | Kind | Name | Example |
 | --- | --- | --- |
-| Generic | `pypi` | `pypi` |
 | CPU | `cpu` | `cpu` |
 | CUDA | `cu<major><minor>` | `cu128` |
 | ROCm | `rocm<major>.<minor>` | `rocm6.3` |
