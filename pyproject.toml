@@ -1,0 +1,35 @@
+[project]
+name = "build-index"
+version = "0.1.0"
+description = "Collect GitHub release wheels and build static Python package indexes"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+  "packaging>=24.2",
+]
+
+[project.scripts]
+build-index = "build_index.cli:main"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "ruff>=0.11",
+  "zizmor>=1.25.2",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.9,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
+
+[tool.ruff]
+target-version = "py314"

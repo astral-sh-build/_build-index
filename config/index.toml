@@ -1,0 +1,48 @@
+schema_version = 1
+
+[site]
+base_url = "https://build-index.invalid"
+
+# Initial channels reflect observed first-party build needs. A channel being
+# present does not imply that any package is currently published in it.
+[[channel]]
+name = "cpu"
+description = "CPU builds"
+
+[[channel]]
+name = "cu121"
+description = "CUDA 12.1 builds"
+
+[[channel]]
+name = "cu124"
+description = "CUDA 12.4 builds"
+
+[[channel]]
+name = "cu126"
+description = "CUDA 12.6 builds"
+
+[[channel]]
+name = "cu128"
+description = "CUDA 12.8 builds"
+
+[[channel]]
+name = "cu129"
+description = "CUDA 12.9 builds"
+
+[[channel]]
+name = "cu130"
+description = "CUDA 13.0 builds"
+
+# Repository entries admit a producer and its projects. Channels are inferred
+# from each wheel and checked against the global channel list above.
+[[repository]]
+repository = "ee-test-builds/build-index-test-cpu"
+projects = ["index-test-cpu"]
+
+[[repository]]
+repository = "ee-test-builds/build-index-test-gpu"
+projects = ["index-test-gpu"]
+
+[[repository]]
+repository = "ee-test-builds/build-index-test-mixed"
+projects = ["index-test-mixed"]
