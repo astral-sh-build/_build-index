@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 from packaging.utils import canonicalize_name
 
 _REPOSITORY_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
-_CHANNEL_PATTERN = re.compile(r"^(?:cpu|pypi|xpu|cu[0-9]+|rocm[0-9]+\.[0-9]+)$")
+_CHANNEL_PATTERN = re.compile(r"^(?:cpu|xpu|cu[0-9]+|rocm[0-9]+\.[0-9]+)$")
 
 
 class ConfigError(ValueError):

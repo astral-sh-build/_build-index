@@ -27,15 +27,14 @@ def test_active_config_starts_without_repositories() -> None:
 
 def test_real_producer_evaluation_config() -> None:
     config = load_config(ASTRAL_SH_BUILD_CONFIG)
-    rdkit = next(
-        repository
-        for repository in config.repositories
-        if repository.repository == "astral-sh-build/build-rdkit"
-    )
 
-    assert {channel.name for channel in config.channels} >= {"cpu", "pypi", "cu128"}
-    assert rdkit.channels is None
-    assert len(config.repositories) == 24
+    assert {channel.name for channel in config.channels} >= {"cpu", "cu128"}
+    assert all(channel.name != "pypi" for channel in config.channels)
+    assert all(
+        repository.repository != "astral-sh-build/build-rdkit"
+        for repository in config.repositories
+    )
+    assert len(config.repositories) == 23
 
 
 def test_config_rejects_noncanonical_channel_name(tmp_path: Path) -> None:

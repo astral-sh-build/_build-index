@@ -254,8 +254,6 @@ def infer_channel(version: Version, channels: tuple[str, ...]) -> str:
     configured = set(channels)
     local = version.local
     if local is None:
-        if "pypi" in configured:
-            return "pypi"
         raise WheelCompatibilityError(
             f"wheel version has no local channel label: {version}"
         )
@@ -299,8 +297,6 @@ def infer_channel(version: Version, channels: tuple[str, ...]) -> str:
                 matches.append(channel)
 
     if not matches:
-        if "pypi" in configured:
-            return "pypi"
         raise WheelCompatibilityError(
             f"wheel version local label does not match a configured channel: {version}"
         )

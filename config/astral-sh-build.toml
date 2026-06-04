@@ -8,10 +8,6 @@ name = "cpu"
 description = "CPU builds"
 
 [[channel]]
-name = "pypi"
-description = "Platform-specific PyPI builds"
-
-[[channel]]
 name = "cu121"
 description = "CUDA 12.1 builds"
 
@@ -113,10 +109,6 @@ projects = ["torch-scatter"]
 [[repository]]
 repository = "astral-sh-build/build-pytorch3d"
 projects = ["pytorch3d"]
-
-[[repository]]
-repository = "astral-sh-build/build-rdkit"
-projects = ["rdkit"]
 
 [[repository]]
 repository = "astral-sh-build/build-sageattention"
