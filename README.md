@@ -21,6 +21,7 @@ Each run reads one TOML configuration containing:
 - The public base URL.
 - Available channels.
 - GitHub repositories and their admitted projects.
+- Optional release-version and unlabeled-wheel channel policies.
 
 Channels are inferred per wheel from version markers such as `+cpu`, `+cu128`,
 `+rocm6.3`, and `+xpu`. The global channel list defines what the index may
@@ -30,9 +31,21 @@ channels.
 
 [`config/index.toml`](config/index.toml) is the active production configuration.
 It admits the build repositories confirmed against the live hardware registries
-in the Astral Pyx workspace.
+in the Astral Pyx workspace, plus the public upstream vLLM source.
 [`config/astral-sh-build.toml`](config/astral-sh-build.toml) is an evaluation
-inventory used to review the active production list.
+inventory used to review the active production list. Both include stable
+upstream `vllm-project/vllm` releases from `v0.9.1`, excluding upstream CPU
+wheels and assigning unlabeled wheels only in reviewed, half-open CUDA-version
+ranges. Explicit wheel labels remain authoritative.
+
+Repositories default to private access and opaque release tags. A repository
+opts into version policy by configuring `tag_regex`,
+`minimum_release_version`, or `unlabeled_channel_rules`. Version regexes use
+`fullmatch` and must contain one named `version` capture. Policy-enabled
+repositories skip nonmatching, invalid, below-minimum, and prerelease versions
+unless prereleases are explicitly allowed. Unlabeled channel rules require
+bounded, nonoverlapping `from` and `before` versions; an unlabeled wheel in a
+gap fails collection.
 
 ## Commands
 
@@ -87,6 +100,10 @@ Private producer repositories grant read access through the GitHub App
 described in [`github-apps/README.md`](github-apps/README.md). The workflow
 creates a short-lived token using
 [`actions/create-reader-token`](actions/create-reader-token/action.yml).
+That token is preferred for every GitHub API read. Public repositories retry
+anonymously only when GitHub rejects the installation token because the
+repository is outside the App installation; private repositories never use
+anonymous fallback.
 
 The Pages workflow derives its explicit GitHub App repository scope from the
 active configuration, polls those repositories, builds the complete static

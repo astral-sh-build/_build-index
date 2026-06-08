@@ -1,5 +1,8 @@
 import hashlib
+import io
+import json
 import threading
+import urllib.error
 from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -8,6 +11,7 @@ from typing import Any
 import pytest
 from packaging.version import Version
 
+from build_index import github as github_module
 from build_index.collection import CollectionError
 from build_index.config import load_config
 from build_index.github import (
@@ -20,6 +24,7 @@ from build_index.github import (
 
 ROOT = Path(__file__).parents[1]
 CONFIG = load_config(ROOT / "tests" / "fixtures" / "index.toml")
+ASTRAL_SH_BUILD_CONFIG = load_config(ROOT / "config" / "astral-sh-build.toml")
 
 
 class FakeGitHubClient:
@@ -28,14 +33,28 @@ class FakeGitHubClient:
         releases: dict[str, list[dict[str, Any]]],
         hashes: dict[str, str] | None = None,
     ) -> None:
+        self.token = "test-token"
         self.releases = releases
         self.hashes = hashes or {}
         self.hash_requests: list[str] = []
 
-    def list_releases(self, repository: str) -> list[dict[str, Any]]:
+    def list_releases(
+        self,
+        repository: str,
+        *,
+        access: str = "private",
+        log: Any = None,
+    ) -> list[dict[str, Any]]:
         return self.releases.get(repository, [])
 
-    def asset_sha256(self, asset_api_url: str) -> str:
+    def asset_sha256(
+        self,
+        asset_api_url: str,
+        *,
+        repository: str | None = None,
+        access: str = "private",
+        log: Any = None,
+    ) -> str:
         self.hash_requests.append(asset_api_url)
         return self.hashes[asset_api_url]
 
@@ -70,6 +89,15 @@ def release(
         "prerelease": prerelease,
         "tag_name": tag,
     }
+
+
+def upstream_vllm_config():
+    repository = next(
+        repository
+        for repository in ASTRAL_SH_BUILD_CONFIG.repositories
+        if repository.repository == "vllm-project/vllm"
+    )
+    return replace(ASTRAL_SH_BUILD_CONFIG, repositories=(repository,))
 
 
 def test_collect_release_assets_assigns_channels_and_ignores_non_wheels() -> None:
@@ -371,6 +399,307 @@ def test_collect_release_assets_rejects_malformed_digest() -> None:
 
     with pytest.raises(GitHubError, match="invalid 'digest'"):
         collect_release_assets(CONFIG, client)
+
+
+@pytest.mark.parametrize(
+    ("tag", "expected_channel"),
+    [
+        ("v0.9.1", "cu128"),
+        ("v0.11.2", "cu128"),
+        ("v0.12.0", "cu129"),
+        ("v0.19.1", "cu129"),
+        ("v0.20.0", "cu130"),
+        ("v0.22.1", "cu130"),
+        ("v0.22.1.post1", "cu130"),
+    ],
+)
+def test_upstream_vllm_unlabeled_wheels_use_bounded_release_mapping(
+    tag: str,
+    expected_channel: str,
+) -> None:
+    version = tag.removeprefix("v")
+    filename = f"vllm-{version}-cp312-cp312-manylinux_2_28_x86_64.whl"
+    client = FakeGitHubClient(
+        {"vllm-project/vllm": [release([asset(filename)], tag=tag)]}
+    )
+
+    collection = collect_release_assets(upstream_vllm_config(), client)
+
+    assert len(collection.artifacts) == 1
+    artifact = collection.artifacts[0]
+    assert artifact.channel == expected_channel
+    assert artifact.filename == filename
+    assert artifact.release == tag
+
+
+def test_upstream_vllm_rejects_unreviewed_unlabeled_wheel() -> None:
+    filename = "vllm-0.23.0-cp312-cp312-manylinux_2_28_x86_64.whl"
+    client = FakeGitHubClient(
+        {"vllm-project/vllm": [release([asset(filename)], tag="v0.23.0")]}
+    )
+
+    with pytest.raises(
+        WheelCompatibilityError,
+        match=(
+            "repository=vllm-project/vllm, tag=v0.23.0, "
+            "captured_version=0.23.0, filename=vllm-0.23.0"
+        ),
+    ):
+        collect_release_assets(upstream_vllm_config(), client)
+
+
+def test_upstream_vllm_explicit_channel_does_not_require_release_mapping() -> None:
+    filename = "vllm-0.23.0+cu.13.0.torch.2.11-cp312-cp312-manylinux_2_28_x86_64.whl"
+    client = FakeGitHubClient(
+        {"vllm-project/vllm": [release([asset(filename)], tag="v0.23.0")]}
+    )
+
+    collection = collect_release_assets(upstream_vllm_config(), client)
+
+    assert [(item.filename, item.channel) for item in collection.artifacts] == [
+        (filename, "cu130")
+    ]
+
+
+def test_upstream_vllm_explicit_cu118_is_authoritative() -> None:
+    filename = "vllm-0.20.0+cu.11.8.torch.2.7-cp312-cp312-manylinux_2_28_x86_64.whl"
+    client = FakeGitHubClient(
+        {"vllm-project/vllm": [release([asset(filename)], tag="v0.20.0")]}
+    )
+
+    collection = collect_release_assets(upstream_vllm_config(), client)
+
+    assert collection.artifacts[0].channel == "cu118"
+
+
+def test_upstream_vllm_ignores_cpu_wheels_without_affecting_astral_cpu() -> None:
+    upstream_cpu = "vllm-0.20.0+cpu-cp312-cp312-manylinux_2_28_x86_64.whl"
+    upstream_gpu = "vllm-0.20.0-cp312-cp312-manylinux_2_28_x86_64.whl"
+    config = upstream_vllm_config()
+    upstream = config.repositories[0]
+    astral = replace(
+        upstream,
+        repository="astral-sh-build/build-vllm",
+        access="private",
+        ignored_channels=(),
+        unlabeled_channel_rules=(),
+        has_version_policy=False,
+    )
+    combined = replace(config, repositories=(astral, upstream))
+    client = FakeGitHubClient(
+        {
+            "vllm-project/vllm": [
+                release(
+                    [asset(upstream_cpu, asset_id=1), asset(upstream_gpu, asset_id=2)],
+                    tag="v0.20.0",
+                )
+            ],
+            "astral-sh-build/build-vllm": [
+                release([asset(upstream_cpu, asset_id=3)], tag="v0.20.0")
+            ],
+        }
+    )
+
+    collection = collect_release_assets(combined, client)
+
+    assert [(item.repository, item.channel) for item in collection.artifacts] == [
+        ("astral-sh-build/build-vllm", "cpu"),
+        ("vllm-project/vllm", "cu130"),
+    ]
+
+
+def test_version_policy_excludes_external_tags_and_prereleases() -> None:
+    stable = "vllm-0.20.0-cp312-cp312-manylinux_2_28_x86_64.whl"
+    post = "vllm-0.20.0.post1-cp312-cp312-manylinux_2_28_x86_64.whl"
+    client = FakeGitHubClient(
+        {
+            "vllm-project/vllm": [
+                release([], tag="external-release"),
+                release([], tag="vnot-a-version"),
+                release([], tag="v0.9.0"),
+                release([], tag="v0.20.0a1"),
+                release([], tag="v0.20.0b1"),
+                release([], tag="v0.20.0rc1"),
+                release([], tag="v0.20.0.dev1"),
+                release([asset(stable, asset_id=1)], tag="v0.20.0"),
+                release([asset(post, asset_id=2)], tag="v0.20.0.post1"),
+            ]
+        }
+    )
+    messages: list[str] = []
+
+    collection = collect_release_assets(
+        upstream_vllm_config(),
+        client,
+        log=messages.append,
+    )
+
+    assert [item.version for item in collection.artifacts] == [
+        "0.20.0",
+        "0.20.0.post1",
+    ]
+    assert any("nonmatching tag" in message for message in messages)
+    assert any("invalid captured version" in message for message in messages)
+    assert any("below minimum version" in message for message in messages)
+    assert sum("parsed prerelease" in message for message in messages) == 4
+
+
+def test_default_tag_regex_extracts_the_complete_tag() -> None:
+    config = upstream_vllm_config()
+    repository = replace(
+        config.repositories[0],
+        tag_regex="^(?P<version>.+)$",
+    )
+    config = replace(config, repositories=(repository,))
+    filename = "vllm-0.20.0-cp312-cp312-manylinux_2_28_x86_64.whl"
+    client = FakeGitHubClient(
+        {"vllm-project/vllm": [release([asset(filename)], tag="0.20.0")]}
+    )
+
+    collection = collect_release_assets(config, client)
+
+    assert collection.artifacts[0].channel == "cu130"
+    assert collection.artifacts[0].release == "0.20.0"
+
+
+def _http_error(
+    code: int,
+    *,
+    message: str = "Not Found",
+    headers: dict[str, str] | None = None,
+) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        "https://api.github.com/repos/example/project/releases",
+        code,
+        message,
+        headers or {},
+        io.BytesIO(json.dumps({"message": message}).encode()),
+    )
+
+
+def test_public_github_read_prefers_token_then_falls_back_anonymously(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = GitHubClient("app-token")
+    tokens: list[str | None] = []
+
+    def get_json(path: str, *, token: str | None) -> Any:
+        tokens.append(token)
+        if token is not None:
+            raise _http_error(404)
+        return []
+
+    monkeypatch.setattr(client, "_get_json", get_json)
+    messages: list[str] = []
+
+    assert (
+        list(
+            client.list_releases(
+                "example/project",
+                access="public",
+                log=messages.append,
+            )
+        )
+        == []
+    )
+    assert tokens == ["app-token", None]
+    assert any("anonymous fallback" in message for message in messages)
+
+
+def test_public_github_read_falls_back_for_integration_access_rejection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = GitHubClient("app-token")
+    tokens: list[str | None] = []
+
+    def get_json(path: str, *, token: str | None) -> Any:
+        tokens.append(token)
+        if token is not None:
+            raise _http_error(
+                403,
+                message="Resource not accessible by integration",
+            )
+        return []
+
+    monkeypatch.setattr(client, "_get_json", get_json)
+
+    assert list(client.list_releases("example/project", access="public")) == []
+    assert tokens == ["app-token", None]
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        _http_error(404),
+        _http_error(
+            403,
+            message="API rate limit exceeded",
+            headers={"X-RateLimit-Remaining": "0"},
+        ),
+        _http_error(500, message="Internal Server Error"),
+    ],
+)
+def test_github_read_does_not_fall_back_for_private_or_unrelated_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    error: urllib.error.HTTPError,
+) -> None:
+    client = GitHubClient("app-token")
+    tokens: list[str | None] = []
+
+    def get_json(path: str, *, token: str | None) -> Any:
+        tokens.append(token)
+        raise error
+
+    monkeypatch.setattr(client, "_get_json", get_json)
+    access = "private" if error.code == 404 else "public"
+
+    with pytest.raises(GitHubError):
+        list(client.list_releases("example/project", access=access))
+    assert tokens == ["app-token"]
+
+
+def test_public_github_read_does_not_fall_back_for_malformed_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = GitHubClient("app-token")
+    tokens: list[str | None] = []
+
+    def get_json(path: str, *, token: str | None) -> Any:
+        tokens.append(token)
+        raise json.JSONDecodeError("invalid", "not-json", 0)
+
+    monkeypatch.setattr(client, "_get_json", get_json)
+
+    with pytest.raises(GitHubError):
+        list(client.list_releases("example/project", access="public"))
+    assert tokens == ["app-token"]
+
+
+def test_public_asset_hash_prefers_token_then_falls_back_anonymously(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests = []
+
+    def asset_hash(request: Any) -> str:
+        requests.append(request)
+        if request.headers.get("Authorization") is not None:
+            raise _http_error(404)
+        return "a" * 64
+
+    monkeypatch.setattr(github_module, "_sha256_github_asset", asset_hash)
+    client = GitHubClient("app-token")
+
+    digest = client.asset_sha256(
+        "https://api.github.com/releases/assets/1",
+        repository="example/project",
+        access="public",
+    )
+
+    assert digest == "a" * 64
+    assert [request.headers.get("Authorization") for request in requests] == [
+        "Bearer app-token",
+        None,
+    ]
 
 
 @pytest.mark.parametrize(

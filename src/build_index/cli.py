@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 from build_index.collection import CollectionError, load_collection, write_collection
-from build_index.config import ConfigError, load_config
+from build_index.config import ConfigError, load_config, private_repository_scope
 from build_index.github import GitHubClient, collect_release_assets
 from build_index.pages import build_pages
 
@@ -42,6 +42,17 @@ def main() -> None:
         help="GitHub REST API base URL.",
     )
 
+    scope_parser = subparsers.add_parser(
+        "reader-token-scope",
+        help="Write the private repository scope for the reader GitHub App token.",
+    )
+    scope_parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    scope_parser.add_argument(
+        "--github-output",
+        type=Path,
+        help="Write owner and repositories as GitHub Actions step outputs.",
+    )
+
     build_parser = subparsers.add_parser(
         "build", help="Build static JSON and HTML Simple API documents."
     )
@@ -62,12 +73,14 @@ def main() -> None:
                 f"{len(config.repositories)} repositories"
             )
         elif args.command == "collect":
+            config = load_config(args.config)
             token = os.environ.get(args.token_env)
-            if not token:
+            if not token and any(
+                repository.access == "private" for repository in config.repositories
+            ):
                 raise CollectionError(
                     f"GitHub token environment variable is not set: {args.token_env}"
                 )
-            config = load_config(args.config)
             collection = collect_release_assets(
                 config,
                 GitHubClient(token, api_url=args.api_url),
@@ -78,6 +91,18 @@ def main() -> None:
                 f"wrote release collection: {args.output}, "
                 f"{len(collection.artifacts)} wheel assets"
             )
+        elif args.command == "reader-token-scope":
+            config = load_config(args.config)
+            owner, repositories = private_repository_scope(config)
+            if args.github_output is None:
+                print(owner)
+                print("\n".join(repositories))
+            else:
+                with args.github_output.open("a", encoding="utf-8") as output:
+                    output.write(f"owner={owner}\n")
+                    output.write("repositories<<__BUILD_INDEX_REPOSITORIES__\n")
+                    output.write("\n".join(repositories) + "\n")
+                    output.write("__BUILD_INDEX_REPOSITORIES__\n")
         elif args.command == "build":
             config = load_config(args.config)
             collection = load_collection(args.collection)
