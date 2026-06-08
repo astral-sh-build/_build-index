@@ -8,6 +8,10 @@ name = "cpu"
 description = "CPU builds"
 
 [[channel]]
+name = "cu118"
+description = "CUDA 11.8 builds"
+
+[[channel]]
 name = "cu121"
 description = "CUDA 12.1 builds"
 
@@ -125,3 +129,17 @@ projects = ["transformer-engine-torch"]
 [[repository]]
 repository = "astral-sh-build/build-vllm"
 projects = ["vllm"]
+
+[[repository]]
+repository = "vllm-project/vllm"
+projects = ["vllm"]
+access = "public"
+tag_regex = "^v(?P<version>.+)$"
+minimum_release_version = "0.9.1"
+ignored_channels = ["cpu"]
+
+unlabeled_channel_rules = [
+  { from = "0.9.1", before = "0.12.0", channel = "cu128" },
+  { from = "0.12.0", before = "0.20.0", channel = "cu129" },
+  { from = "0.20.0", before = "0.23.0", channel = "cu130" },
+]

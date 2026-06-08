@@ -63,13 +63,14 @@ def test_reader_token_action_requires_explicit_read_scope() -> None:
 def test_pages_workflow_uses_reader_token_for_admitted_repositories() -> None:
     workflow = PAGES_WORKFLOW.read_text(encoding="utf-8")
 
-    assert "Read producer repositories" in workflow
+    assert "Resolve private producer scope" in workflow
     assert "uses: ./actions/create-reader-token" in workflow
     assert "BUILD_INDEX_READER_CLIENT_ID" in workflow
     assert "BUILD_INDEX_READER_PRIVATE_KEY" in workflow
-    assert "owner: astral-sh-build" in workflow
-    assert "steps.producer-repositories.outputs.names != ''" in workflow
-    assert "steps.producer-repositories.outputs.names" in workflow
+    assert "build-index reader-token-scope" in workflow
+    assert "steps.producer-scope.outputs.owner" in workflow
+    assert "steps.producer-scope.outputs.repositories" in workflow
+    assert "vllm-project/vllm" not in workflow
     assert "steps.producer-token.outputs.token || github.token" in workflow
     assert "build-index collect" in workflow
     assert "build-index build" in workflow

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from build_index.config import ConfigError, load_config
+from build_index.config import ConfigError, load_config, private_repository_scope
 
 ROOT = Path(__file__).parents[1]
 CONFIG = ROOT / "config" / "index.toml"
@@ -19,13 +19,15 @@ def test_active_config_matches_validated_producer_inventory() -> None:
         "cu121",
         "cu124",
         "cu126",
+        "cu118",
         "cu128",
         "cu129",
         "cu130",
     }
     assert config.channels == inventory.channels
     assert config.repositories == inventory.repositories
-    assert len(config.repositories) == 23
+    assert len(config.repositories) == 24
+    assert all(repository.channels is None for repository in config.repositories)
 
 
 def test_real_producer_evaluation_config() -> None:
@@ -37,7 +39,24 @@ def test_real_producer_evaluation_config() -> None:
         repository.repository != "astral-sh-build/build-rdkit"
         for repository in config.repositories
     )
-    assert len(config.repositories) == 23
+    upstream = next(
+        repository
+        for repository in config.repositories
+        if repository.repository == "vllm-project/vllm"
+    )
+    assert upstream.access == "public"
+    assert upstream.tag_regex == "^v(?P<version>.+)$"
+    assert str(upstream.minimum_release_version) == "0.9.1"
+    assert upstream.ignored_channels == ("cpu",)
+    assert [
+        (str(rule.from_version), str(rule.before_version), rule.channel)
+        for rule in upstream.unlabeled_channel_rules
+    ] == [
+        ("0.9.1", "0.12.0", "cu128"),
+        ("0.12.0", "0.20.0", "cu129"),
+        ("0.20.0", "0.23.0", "cu130"),
+    ]
+    assert len(config.repositories) == 24
 
 
 def test_config_rejects_noncanonical_channel_name(tmp_path: Path) -> None:
@@ -107,3 +126,130 @@ projects = ["Example_Package"]
 
     with pytest.raises(ConfigError, match="non-normalized name"):
         load_config(path)
+
+
+def test_repository_policy_defaults_to_private_opaque_tags() -> None:
+    config = load_config(CONFIG)
+    private = tuple(
+        repository
+        for repository in config.repositories
+        if repository.access == "private"
+    )
+
+    assert len(private) == 23
+    assert all(repository.tag_regex == "^(?P<version>.+)$" for repository in private)
+    assert all(repository.has_version_policy is False for repository in private)
+    assert all(repository.allow_prereleases is False for repository in private)
+
+
+@pytest.mark.parametrize(
+    ("policy", "message"),
+    [
+        ('tag_regex = "("\n', "tag_regex is invalid"),
+        ('tag_regex = "^v(.+)$"\n', "named 'version' capture"),
+        (
+            'tag_regex = "^(?P<version>.+)-(?P<other>.+)$"\n',
+            "named 'version' capture",
+        ),
+    ],
+)
+def test_config_rejects_invalid_tag_regex(
+    tmp_path: Path,
+    policy: str,
+    message: str,
+) -> None:
+    path = tmp_path / "index.toml"
+    path.write_text(
+        CONFIG.read_text(encoding="utf-8")
+        + f"""
+
+[[repository]]
+repository = "example/project"
+projects = ["example"]
+{policy}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match=message):
+        load_config(path)
+
+
+@pytest.mark.parametrize(
+    ("rules", "message"),
+    [
+        (
+            '[{ from = "1.0", channel = "cu128" }]',
+            "before is required",
+        ),
+        (
+            '[{ from = "1.0", before = "1.0", channel = "cu128" }]',
+            "nonempty range",
+        ),
+        (
+            (
+                '[{ from = "1.0", before = "2.0", channel = "cu128" }, '
+                '{ from = "1.5", before = "3.0", channel = "cu129" }]'
+            ),
+            "overlapping ranges",
+        ),
+        (
+            '[{ from = "1.0", before = "2.0", channel = "cu999" }]',
+            "unknown channels: cu999",
+        ),
+    ],
+)
+def test_config_rejects_invalid_unlabeled_channel_rules(
+    tmp_path: Path,
+    rules: str,
+    message: str,
+) -> None:
+    path = tmp_path / "index.toml"
+    path.write_text(
+        CONFIG.read_text(encoding="utf-8")
+        + f"""
+
+[[repository]]
+repository = "example/project"
+projects = ["example"]
+unlabeled_channel_rules = {rules}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match=message):
+        load_config(path)
+
+
+def test_config_allows_gaps_between_unlabeled_channel_rules(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "index.toml"
+    path.write_text(
+        CONFIG.read_text(encoding="utf-8")
+        + """
+
+[[repository]]
+repository = "example/project"
+projects = ["example"]
+unlabeled_channel_rules = [
+  { from = "1.0", before = "2.0", channel = "cu128" },
+  { from = "3.0", before = "4.0", channel = "cu129" },
+]
+""",
+        encoding="utf-8",
+    )
+
+    config = load_config(path)
+
+    assert len(config.repositories[-1].unlabeled_channel_rules) == 2
+
+
+def test_private_repository_scope_excludes_public_sources() -> None:
+    config = load_config(ASTRAL_SH_BUILD_CONFIG)
+
+    owner, repositories = private_repository_scope(config)
+
+    assert owner == "astral-sh-build"
+    assert "build-vllm" in repositories
+    assert "vllm" not in repositories
