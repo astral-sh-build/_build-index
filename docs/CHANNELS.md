@@ -28,3 +28,7 @@ whose versions have no local channel label. Those rules are evaluated against
 the version captured from the original GitHub release tag, not the wheel
 version. Gaps are allowed deliberately, but collection fails if an unlabeled
 wheel lands in one.
+
+Repository `ignored_channels` are evaluated before the global publication
+allowlist. They must use canonical channel names, but do not need corresponding
+global `[[channel]]` entries.

@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -241,6 +242,45 @@ unlabeled_channel_rules = [
     assert len(config.repositories[-1].unlabeled_channel_rules) == 2
 
 
+def test_config_allows_ignored_channel_outside_public_channel_list(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "index.toml"
+    path.write_text(
+        CONFIG.read_text(encoding="utf-8")
+        + """
+
+[[repository]]
+repository = "example/project"
+projects = ["example"]
+ignored_channels = ["rocm6.3"]
+""",
+        encoding="utf-8",
+    )
+
+    config = load_config(path)
+
+    assert config.repositories[-1].ignored_channels == ("rocm6.3",)
+
+
+def test_config_rejects_noncanonical_ignored_channel(tmp_path: Path) -> None:
+    path = tmp_path / "index.toml"
+    path.write_text(
+        CONFIG.read_text(encoding="utf-8")
+        + """
+
+[[repository]]
+repository = "example/project"
+projects = ["example"]
+ignored_channels = ["cuda12.8"]
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="ignored channel is not canonical"):
+        load_config(path)
+
+
 def test_private_repository_scope_excludes_public_sources() -> None:
     config = load_config(CONFIG)
 
@@ -249,3 +289,17 @@ def test_private_repository_scope_excludes_public_sources() -> None:
     assert owner == "astral-sh-build"
     assert "build-vllm" in repositories
     assert "vllm" not in repositories
+
+
+def test_private_repository_scope_allows_public_only_config() -> None:
+    config = load_config(CONFIG)
+    public = tuple(
+        repository
+        for repository in config.repositories
+        if repository.access == "public"
+    )
+
+    owner, repositories = private_repository_scope(replace(config, repositories=public))
+
+    assert owner == ""
+    assert repositories == ()

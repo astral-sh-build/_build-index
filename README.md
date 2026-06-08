@@ -43,7 +43,8 @@ opts into version policy by configuring `tag_regex`,
 repositories skip nonmatching, invalid, below-minimum, and prerelease versions
 unless prereleases are explicitly allowed. Unlabeled channel rules require
 bounded, nonoverlapping `from` and `before` versions; an unlabeled wheel in a
-gap fails collection.
+gap fails collection. Ignored channels are exclusions rather than publication
+channels, so they do not need to appear in the global channel list.
 
 ## Commands
 

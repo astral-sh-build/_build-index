@@ -228,7 +228,7 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
 
 
 def private_repository_scope(config: IndexConfig) -> tuple[str, tuple[str, ...]]:
-    """Return one GitHub App installation owner and its private repositories."""
+    """Return one GitHub App owner and private scope, or an empty public-only scope."""
     private = sorted(
         (
             repository.repository.split("/", maxsplit=1)
@@ -238,7 +238,7 @@ def private_repository_scope(config: IndexConfig) -> tuple[str, tuple[str, ...]]
         key=lambda item: (item[0], item[1]),
     )
     if not private:
-        raise ConfigError("configuration does not contain any private repositories")
+        return "", ()
     owners = {owner for owner, _name in private}
     if len(owners) != 1:
         raise ConfigError(
@@ -301,8 +301,14 @@ def _validate_repository_channels(
     repository: RepositoryConfig,
     configured: set[str],
 ) -> None:
-    references = set(repository.ignored_channels)
-    references.update(rule.channel for rule in repository.unlabeled_channel_rules)
+    for channel in repository.ignored_channels:
+        if not _CHANNEL_PATTERN.fullmatch(channel):
+            raise ConfigError(
+                f"repository {repository.repository!r} ignored channel is not "
+                f"canonical: {channel!r}"
+            )
+
+    references = {rule.channel for rule in repository.unlabeled_channel_rules}
     if repository.channels is not None:
         references.update(repository.channels)
     unknown = sorted(references - configured)
