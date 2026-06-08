@@ -181,3 +181,23 @@ def test_build_pages_replaces_output_tree(tmp_path: Path) -> None:
     build_pages(CONFIG, output, collection=example_collection())
 
     assert not stale.exists()
+
+
+def test_repeated_page_builds_are_byte_identical(tmp_path: Path) -> None:
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+
+    build_pages(CONFIG, first, collection=example_collection())
+    build_pages(CONFIG, second, collection=example_collection())
+
+    first_files = {
+        path.relative_to(first): path.read_bytes()
+        for path in first.rglob("*")
+        if path.is_file()
+    }
+    second_files = {
+        path.relative_to(second): path.read_bytes()
+        for path in second.rglob("*")
+        if path.is_file()
+    }
+    assert first_files == second_files
