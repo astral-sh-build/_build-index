@@ -24,7 +24,7 @@ from build_index.github import (
 
 ROOT = Path(__file__).parents[1]
 CONFIG = load_config(ROOT / "tests" / "fixtures" / "index.toml")
-ASTRAL_SH_BUILD_CONFIG = load_config(ROOT / "config" / "astral-sh-build.toml")
+PRODUCTION_CONFIG = load_config(ROOT / "config" / "index.toml")
 
 
 class FakeGitHubClient:
@@ -94,10 +94,10 @@ def release(
 def upstream_vllm_config():
     repository = next(
         repository
-        for repository in ASTRAL_SH_BUILD_CONFIG.repositories
+        for repository in PRODUCTION_CONFIG.repositories
         if repository.repository == "vllm-project/vllm"
     )
-    return replace(ASTRAL_SH_BUILD_CONFIG, repositories=(repository,))
+    return replace(PRODUCTION_CONFIG, repositories=(repository,))
 
 
 def test_collect_release_assets_assigns_channels_and_ignores_non_wheels() -> None:

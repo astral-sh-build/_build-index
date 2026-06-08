@@ -31,12 +31,10 @@ channels.
 
 [`config/index.toml`](config/index.toml) is the active production configuration.
 It admits the build repositories confirmed against the live hardware registries
-in the Astral Pyx workspace, plus the public upstream vLLM source.
-[`config/astral-sh-build.toml`](config/astral-sh-build.toml) is an evaluation
-inventory used to review the active production list. Both include stable
-upstream `vllm-project/vllm` releases from `v0.9.1`, excluding upstream CPU
-wheels and assigning unlabeled wheels only in reviewed, half-open CUDA-version
-ranges. Explicit wheel labels remain authoritative.
+in the Astral Pyx workspace, plus stable upstream `vllm-project/vllm` releases
+from `v0.9.1`. Upstream CPU wheels are excluded, and unlabeled wheels are
+assigned only in reviewed, half-open CUDA-version ranges. Explicit wheel labels
+remain authoritative.
 
 Repositories default to private access and opaque release tags. A repository
 opts into version policy by configuring `tag_regex`,
