@@ -10,9 +10,12 @@ from typing import Any
 from urllib.parse import urlparse
 
 from packaging.utils import canonicalize_name
+from packaging.version import InvalidVersion, Version
 
 _REPOSITORY_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 _CHANNEL_PATTERN = re.compile(r"^(?:cpu|xpu|cu[0-9]+|rocm[0-9]+\.[0-9]+)$")
+_DEFAULT_TAG_REGEX = r"^(?P<version>.+)$"
+_REPOSITORY_ACCESS = frozenset({"private", "public"})
 
 
 class ConfigError(ValueError):
@@ -31,11 +34,27 @@ class ChannelConfig:
 
 
 @dataclass(frozen=True)
+class UnlabeledChannelRule:
+    from_version: Version
+    before_version: Version
+    channel: str
+
+    def contains(self, version: Version) -> bool:
+        return self.from_version <= version < self.before_version
+
+
+@dataclass(frozen=True)
 class RepositoryConfig:
     repository: str
     projects: tuple[str, ...]
     channels: tuple[str, ...] | None = None
+    access: str = "private"
+    tag_regex: str = _DEFAULT_TAG_REGEX
+    minimum_release_version: Version | None = None
     allow_prereleases: bool = False
+    ignored_channels: tuple[str, ...] = ()
+    unlabeled_channel_rules: tuple[UnlabeledChannelRule, ...] = ()
+    has_version_policy: bool = False
 
 
 @dataclass(frozen=True)
@@ -82,14 +101,7 @@ def load_config(path: Path) -> IndexConfig:
     )
     channel_names = {channel.name for channel in channels}
     for repository in repositories:
-        if repository.channels is None:
-            continue
-        unknown = sorted(set(repository.channels) - channel_names)
-        if unknown:
-            raise ConfigError(
-                f"repository {repository.repository!r} references unknown channels: "
-                f"{', '.join(unknown)}"
-            )
+        _validate_repository_channels(repository, channel_names)
 
     return IndexConfig(
         site=site,
@@ -129,7 +141,17 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
         raise ConfigError(f"{context} must be a table")
     _expect_keys(
         data,
-        {"repository", "projects", "channels", "allow_prereleases"},
+        {
+            "repository",
+            "projects",
+            "channels",
+            "access",
+            "tag_regex",
+            "minimum_release_version",
+            "allow_prereleases",
+            "ignored_channels",
+            "unlabeled_channel_rules",
+        },
         context,
     )
     repository = _required(data, "repository", str, context)
@@ -151,15 +173,170 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
                 f"{context}.projects contains non-normalized name {project!r}"
             )
 
+    access = data.get("access", "private")
+    if not isinstance(access, str) or access not in _REPOSITORY_ACCESS:
+        raise ConfigError(
+            f"{context}.access must be one of: {', '.join(sorted(_REPOSITORY_ACCESS))}"
+        )
+
+    tag_regex = data.get("tag_regex", _DEFAULT_TAG_REGEX)
+    if not isinstance(tag_regex, str):
+        raise ConfigError(f"{context}.tag_regex must be a string")
+    _validate_tag_regex(tag_regex, context)
+
+    minimum_release_version = (
+        _version(data["minimum_release_version"], f"{context}.minimum_release_version")
+        if "minimum_release_version" in data
+        else None
+    )
+
     allow_prereleases = data.get("allow_prereleases", False)
     if not isinstance(allow_prereleases, bool):
         raise ConfigError(f"{context}.allow_prereleases must be a boolean")
+
+    ignored_channels = (
+        _string_tuple(data, "ignored_channels", context)
+        if "ignored_channels" in data
+        else ()
+    )
+    _require_unique(ignored_channels, f"{context} ignored channel")
+
+    unlabeled_channel_rules = _load_unlabeled_channel_rules(
+        data.get("unlabeled_channel_rules", []),
+        context,
+    )
+    has_version_policy = any(
+        key in data
+        for key in (
+            "tag_regex",
+            "minimum_release_version",
+            "unlabeled_channel_rules",
+        )
+    )
     return RepositoryConfig(
         repository=repository,
         projects=projects,
         channels=channels,
+        access=access,
+        tag_regex=tag_regex,
+        minimum_release_version=minimum_release_version,
         allow_prereleases=allow_prereleases,
+        ignored_channels=ignored_channels,
+        unlabeled_channel_rules=unlabeled_channel_rules,
+        has_version_policy=has_version_policy,
     )
+
+
+def private_repository_scope(config: IndexConfig) -> tuple[str, tuple[str, ...]]:
+    """Return one GitHub App owner and private scope, or an empty public-only scope."""
+    private = sorted(
+        (
+            repository.repository.split("/", maxsplit=1)
+            for repository in config.repositories
+            if repository.access == "private"
+        ),
+        key=lambda item: (item[0], item[1]),
+    )
+    if not private:
+        return "", ()
+    owners = {owner for owner, _name in private}
+    if len(owners) != 1:
+        raise ConfigError(
+            "private repositories must share one GitHub App installation owner: "
+            f"{', '.join(sorted(owners))}"
+        )
+    return private[0][0], tuple(name for _owner, name in private)
+
+
+def _load_unlabeled_channel_rules(
+    value: Any,
+    context: str,
+) -> tuple[UnlabeledChannelRule, ...]:
+    if not isinstance(value, list):
+        raise ConfigError(f"{context}.unlabeled_channel_rules must be an array")
+
+    rules = []
+    for index, data in enumerate(value):
+        rule_context = f"{context}.unlabeled_channel_rules[{index}]"
+        if not isinstance(data, dict):
+            raise ConfigError(f"{rule_context} must be a table")
+        _expect_keys(data, {"from", "before", "channel"}, rule_context)
+        from_version = _version(
+            _required(data, "from", str, rule_context),
+            f"{rule_context}.from",
+        )
+        before_version = _version(
+            _required(data, "before", str, rule_context),
+            f"{rule_context}.before",
+        )
+        if from_version >= before_version:
+            raise ConfigError(
+                f"{rule_context} must define a nonempty range with from < before"
+            )
+        rules.append(
+            UnlabeledChannelRule(
+                from_version=from_version,
+                before_version=before_version,
+                channel=_required(data, "channel", str, rule_context),
+            )
+        )
+
+    sorted_rules = sorted(
+        rules,
+        key=lambda rule: (rule.from_version, rule.before_version, rule.channel),
+    )
+    for previous, current in zip(sorted_rules, sorted_rules[1:], strict=False):
+        if current.from_version < previous.before_version:
+            raise ConfigError(
+                f"{context}.unlabeled_channel_rules contains overlapping ranges: "
+                f"{previous.from_version}..<"
+                f"{previous.before_version} and "
+                f"{current.from_version}..<"
+                f"{current.before_version}"
+            )
+    return tuple(sorted_rules)
+
+
+def _validate_repository_channels(
+    repository: RepositoryConfig,
+    configured: set[str],
+) -> None:
+    for channel in repository.ignored_channels:
+        if not _CHANNEL_PATTERN.fullmatch(channel):
+            raise ConfigError(
+                f"repository {repository.repository!r} ignored channel is not "
+                f"canonical: {channel!r}"
+            )
+
+    references = {rule.channel for rule in repository.unlabeled_channel_rules}
+    if repository.channels is not None:
+        references.update(repository.channels)
+    unknown = sorted(references - configured)
+    if unknown:
+        raise ConfigError(
+            f"repository {repository.repository!r} references unknown channels: "
+            f"{', '.join(unknown)}"
+        )
+
+
+def _validate_tag_regex(value: str, context: str) -> None:
+    try:
+        pattern = re.compile(value)
+    except re.error as error:
+        raise ConfigError(f"{context}.tag_regex is invalid: {error}") from error
+    if pattern.groups != 1 or pattern.groupindex != {"version": 1}:
+        raise ConfigError(
+            f"{context}.tag_regex must contain exactly one named 'version' capture"
+        )
+
+
+def _version(value: Any, context: str) -> Version:
+    if not isinstance(value, str):
+        raise ConfigError(f"{context} must be a string")
+    try:
+        return Version(value)
+    except InvalidVersion as error:
+        raise ConfigError(f"{context} is not a valid version: {value!r}") from error
 
 
 def _required(data: dict[str, Any], key: str, expected_type: type, context: str) -> Any:

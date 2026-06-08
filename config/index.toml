@@ -10,6 +10,10 @@ name = "cpu"
 description = "CPU builds"
 
 [[channel]]
+name = "cu118"
+description = "CUDA 11.8 builds"
+
+[[channel]]
 name = "cu121"
 description = "CUDA 12.1 builds"
 
@@ -123,6 +127,26 @@ projects = ["sageattn3"]
 repository = "astral-sh-build/build-transformer-engine-torch"
 projects = ["transformer-engine-torch"]
 
+# Keep the two vLLM sources together. Astral builds remain authoritative for
+# CPU wheels; upstream CPU wheels are ignored below to avoid duplicate sources.
 [[repository]]
 repository = "astral-sh-build/build-vllm"
 projects = ["vllm"]
+
+# Upstream releases are imported from the first version with GitHub-provided
+# asset digests. Explicit wheel labels win; bare wheels use only the reviewed,
+# bounded CUDA mappings below. Extend the final bound deliberately when a new
+# upstream default is verified so an unknown default fails collection closed.
+[[repository]]
+repository = "vllm-project/vllm"
+projects = ["vllm"]
+access = "public"
+tag_regex = "^v(?P<version>.+)$"
+minimum_release_version = "0.9.1"
+ignored_channels = ["cpu"]
+
+unlabeled_channel_rules = [
+  { from = "0.9.1", before = "0.12.0", channel = "cu128" },
+  { from = "0.12.0", before = "0.20.0", channel = "cu129" },
+  { from = "0.20.0", before = "0.23.0", channel = "cu130" },
+]

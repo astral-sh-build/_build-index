@@ -77,21 +77,35 @@ creates a short-lived installation token. It requires an explicit repository
 list and hardcodes `Contents: Read`, so the token cannot silently expand to
 every repository in the App installation or request write access.
 
-The Pages branch workflow uses the action before release collection:
+The Pages branch workflow derives that repository list from configured private
+sources only, then uses the action before release collection:
 
 ```yaml
+- name: Resolve private producer scope
+  id: producer-scope
+  run: |
+    uv run --locked build-index reader-token-scope \
+      --github-output "$GITHUB_OUTPUT"
+
 - name: Create producer repository token
-  if: steps.producer-repositories.outputs.names != ''
+  if: steps.producer-scope.outputs.has_private_repositories == 'true'
   id: producer-token
   uses: ./actions/create-reader-token
   with:
     client-id: ${{ vars.BUILD_INDEX_READER_CLIENT_ID }}
     private-key: ${{ secrets.BUILD_INDEX_READER_PRIVATE_KEY }}
-    owner: astral-sh-build
-    repositories: ${{ steps.producer-repositories.outputs.names }}
+    owner: ${{ steps.producer-scope.outputs.owner }}
+    repositories: ${{ steps.producer-scope.outputs.repositories }}
 
 - name: Collect producer releases
   env:
     GH_TOKEN: ${{ steps.producer-token.outputs.token || github.token }}
   run: uv run --locked build-index collect
 ```
+
+The collector still prefers this token for configured public repositories.
+When an installation token receives a repository-access rejection for a public
+source outside the App installation, that request is retried anonymously.
+Rate limits, server errors, malformed responses, and private-source failures
+are never retried anonymously. If the configuration has no private sources,
+the workflow skips token creation and collection proceeds with public access.
