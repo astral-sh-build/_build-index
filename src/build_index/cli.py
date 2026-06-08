@@ -99,10 +99,16 @@ def main() -> None:
                 print("\n".join(repositories))
             else:
                 with args.github_output.open("a", encoding="utf-8") as output:
+                    output.write(
+                        f"has_private_repositories={str(bool(repositories)).lower()}\n"
+                    )
                     output.write(f"owner={owner}\n")
-                    output.write("repositories<<__BUILD_INDEX_REPOSITORIES__\n")
-                    output.write("\n".join(repositories) + "\n")
-                    output.write("__BUILD_INDEX_REPOSITORIES__\n")
+                    if repositories:
+                        output.write("repositories<<__BUILD_INDEX_REPOSITORIES__\n")
+                        output.write("\n".join(repositories) + "\n")
+                        output.write("__BUILD_INDEX_REPOSITORIES__\n")
+                    else:
+                        output.write("repositories=\n")
         elif args.command == "build":
             config = load_config(args.config)
             collection = load_collection(args.collection)

@@ -48,6 +48,7 @@ jobs:
             --github-output "$GITHUB_OUTPUT"
 
       - name: Create producer repository token
+        if: steps.producer-scope.outputs.has_private_repositories == 'true'
         id: producer-token
         uses: ./actions/create-reader-token
         with:

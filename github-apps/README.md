@@ -88,6 +88,7 @@ sources only, then uses the action before release collection:
       --github-output "$GITHUB_OUTPUT"
 
 - name: Create producer repository token
+  if: steps.producer-scope.outputs.has_private_repositories == 'true'
   id: producer-token
   uses: ./actions/create-reader-token
   with:
@@ -106,4 +107,5 @@ The collector still prefers this token for configured public repositories.
 When an installation token receives a repository-access rejection for a public
 source outside the App installation, that request is retried anonymously.
 Rate limits, server errors, malformed responses, and private-source failures
-are never retried anonymously.
+are never retried anonymously. If the configuration has no private sources,
+the workflow skips token creation and collection proceeds with public access.

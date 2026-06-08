@@ -508,6 +508,30 @@ def test_upstream_vllm_ignores_cpu_wheels_without_affecting_astral_cpu() -> None
     ]
 
 
+def test_ignored_channel_does_not_need_to_be_publicly_configured() -> None:
+    rocm = "vllm-0.20.0+rocm6.3-cp312-cp312-manylinux_2_28_x86_64.whl"
+    cuda = "vllm-0.20.0-cp312-cp312-manylinux_2_28_x86_64.whl"
+    config = upstream_vllm_config()
+    repository = replace(config.repositories[0], ignored_channels=("cpu", "rocm6.3"))
+    config = replace(config, repositories=(repository,))
+    client = FakeGitHubClient(
+        {
+            "vllm-project/vllm": [
+                release(
+                    [asset(rocm, asset_id=1), asset(cuda, asset_id=2)],
+                    tag="v0.20.0",
+                )
+            ]
+        }
+    )
+
+    collection = collect_release_assets(config, client)
+
+    assert [(item.filename, item.channel) for item in collection.artifacts] == [
+        (cuda, "cu130")
+    ]
+
+
 def test_version_policy_excludes_external_tags_and_prereleases() -> None:
     stable = "vllm-0.20.0-cp312-cp312-manylinux_2_28_x86_64.whl"
     post = "vllm-0.20.0.post1-cp312-cp312-manylinux_2_28_x86_64.whl"

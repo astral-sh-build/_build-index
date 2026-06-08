@@ -428,6 +428,15 @@ def _apply_release_version_policy(
 def infer_channel(version: Version, channels: tuple[str, ...]) -> str:
     """Infer one configured channel from a wheel's local version label."""
     configured = set(channels)
+    channel = _infer_channel_label(version, channels)
+    return _require_configured_channel(channel, version, configured)
+
+
+def _infer_channel_label(
+    version: Version,
+    candidate_channels: tuple[str, ...],
+) -> str:
+    """Recognize a channel label without applying the publication allowlist."""
     local = version.local
     if local is None:
         raise WheelCompatibilityError(
@@ -435,35 +444,23 @@ def infer_channel(version: Version, channels: tuple[str, ...]) -> str:
         )
 
     if _CPU_LOCAL_PATTERN.search(local):
-        return _require_configured_channel("cpu", version, configured)
+        return "cpu"
 
     for pattern in (_CANONICAL_CUDA_LOCAL_PATTERN, _LEGACY_CUDA_LOCAL_PATTERN):
         if match := pattern.search(local):
-            return _require_configured_channel(
-                f"cu{match.group('major')}{match.group('minor')}",
-                version,
-                configured,
-            )
+            return f"cu{match.group('major')}{match.group('minor')}"
 
     if match := _CONDENSED_CUDA_LOCAL_PATTERN.search(local):
-        return _require_configured_channel(
-            f"cu{match.group('version')}",
-            version,
-            configured,
-        )
+        return f"cu{match.group('version')}"
 
     if match := _ROCM_LOCAL_PATTERN.search(local):
-        return _require_configured_channel(
-            f"rocm{match.group('major')}.{match.group('minor')}",
-            version,
-            configured,
-        )
+        return f"rocm{match.group('major')}.{match.group('minor')}"
 
     if _XPU_LOCAL_PATTERN.search(local):
-        return _require_configured_channel("xpu", version, configured)
+        return "xpu"
 
     matches = []
-    for channel in channels:
+    for channel in candidate_channels:
         if local == channel:
             matches.append(channel)
             continue
@@ -615,7 +612,13 @@ def _artifact_channel(
     *,
     channels: tuple[str, ...],
 ) -> str:
-    if version.local is not None or not repository.unlabeled_channel_rules:
+    if version.local is not None:
+        candidates = tuple(dict.fromkeys((*channels, *repository.ignored_channels)))
+        channel = _infer_channel_label(version, candidates)
+        if channel in repository.ignored_channels:
+            return channel
+        return _require_configured_channel(channel, version, set(channels))
+    if not repository.unlabeled_channel_rules:
         return infer_channel(version, channels)
 
     release_version = selected_release.version

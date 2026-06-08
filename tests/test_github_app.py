@@ -70,6 +70,10 @@ def test_pages_workflow_uses_reader_token_for_admitted_repositories() -> None:
     assert "build-index reader-token-scope" in workflow
     assert "steps.producer-scope.outputs.owner" in workflow
     assert "steps.producer-scope.outputs.repositories" in workflow
+    assert (
+        "if: steps.producer-scope.outputs.has_private_repositories == 'true'"
+        in workflow
+    )
     assert "vllm-project/vllm" not in workflow
     assert "steps.producer-token.outputs.token || github.token" in workflow
     assert "build-index collect" in workflow
