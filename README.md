@@ -120,6 +120,11 @@ R2 publication is enabled when these repository settings are configured:
 | `R2_ACCESS_KEY_ID` | Secret | Bucket-scoped R2 S3 access key |
 | `R2_SECRET_ACCESS_KEY` | Secret | Bucket-scoped R2 S3 secret key |
 
+The bucket, custom domain, URL rewrites, and cache behavior are managed by the
+[`terraform/`](terraform/README.md) stack. Its outputs provide the two
+non-secret GitHub variables. R2 access keys remain separately managed secrets
+so they are not stored in Terraform state.
+
 The R2 credentials should have object read and write access only to the target
 bucket. The sync owns only `simple/v1+json/` and `simple/v1+html/`; it does not
 delete or upload any future `artifacts/` objects. The conventional
