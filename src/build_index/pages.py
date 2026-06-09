@@ -124,6 +124,10 @@ def _group_artifacts(
     files: dict[tuple[str, str], list[CollectedArtifact]] = defaultdict(list)
     configured_channels = {channel.name for channel in config.channels}
     for artifact in collection.artifacts:
+        if artifact.published_url is None or artifact.metadata_sha256 is None:
+            raise CollectionError(
+                f"collection contains an unmirrored artifact: {artifact.filename}"
+            )
         repository = config.repository(artifact.repository)
         if repository is None:
             raise CollectionError(
@@ -158,16 +162,7 @@ def _project_json(
     files: tuple[CollectedArtifact, ...],
 ) -> dict[str, Any]:
     return {
-        "files": [
-            {
-                "filename": artifact.filename,
-                "hashes": {"sha256": artifact.sha256},
-                "size": artifact.size,
-                "upload-time": artifact.upload_time,
-                "url": artifact.url,
-            }
-            for artifact in files
-        ],
+        "files": [_project_json_file(artifact) for artifact in files],
         "meta": {"api-version": "1.4"},
         "name": project,
         "versions": sorted(
@@ -175,6 +170,22 @@ def _project_json(
             key=lambda value: (Version(value), value),
         ),
     }
+
+
+def _project_json_file(artifact: CollectedArtifact) -> dict[str, Any]:
+    if artifact.published_url is None or artifact.metadata_sha256 is None:
+        raise CollectionError(f"artifact is not mirrored: {artifact.filename}")
+    result = {
+        "core-metadata": {"sha256": artifact.metadata_sha256},
+        "filename": artifact.filename,
+        "hashes": {"sha256": artifact.sha256},
+        "size": artifact.size,
+        "upload-time": artifact.upload_time,
+        "url": artifact.published_url,
+    }
+    if artifact.requires_python is not None:
+        result["requires-python"] = artifact.requires_python
+    return result
 
 
 def _reset_output(output: Path) -> None:
@@ -315,16 +326,24 @@ def _project_files_html(
     project: str,
     files: tuple[CollectedArtifact, ...],
 ) -> str:
-    links = [
-        f'<a href="{_escape(artifact.url)}#sha256={artifact.sha256}">'
-        f"{_escape(artifact.filename)}</a>"
-        for artifact in files
-    ]
+    links = [_artifact_link(artifact) for artifact in files]
     return _html_document(
         f"Links for {project}",
         links,
         repository_version="1.4",
     )
+
+
+def _artifact_link(artifact: CollectedArtifact) -> str:
+    if artifact.published_url is None or artifact.metadata_sha256 is None:
+        raise CollectionError(f"artifact is not mirrored: {artifact.filename}")
+    attributes = [
+        f'href="{_escape(artifact.published_url)}#sha256={artifact.sha256}"',
+        f'data-core-metadata="sha256={artifact.metadata_sha256}"',
+    ]
+    if artifact.requires_python is not None:
+        attributes.append(f'data-requires-python="{_escape(artifact.requires_python)}"')
+    return f"<a {' '.join(attributes)}>{_escape(artifact.filename)}</a>"
 
 
 def _html_document(

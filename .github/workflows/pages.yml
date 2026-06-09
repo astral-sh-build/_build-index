@@ -20,7 +20,7 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 60
     permissions:
       contents: write
     steps:
@@ -62,11 +62,24 @@ jobs:
           GH_TOKEN: ${{ steps.producer-token.outputs.token || github.token }}
         run: uv run --locked build-index collect
 
+      - name: Mirror artifacts and core metadata to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ vars.R2_ACCESS_KEY_ID }}
+          AWS_EC2_METADATA_DISABLED: "true"
+          AWS_REGION: auto
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          GH_TOKEN: ${{ steps.producer-token.outputs.token || github.token }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
+          R2_PUBLIC_URL: ${{ vars.R2_PUBLIC_URL }}
+        run: uv run --locked build-index mirror
+
       - name: Build index tree
-        run: uv run --locked build-index build
+        env:
+          R2_PUBLIC_URL: ${{ vars.R2_PUBLIC_URL }}
+        run: uv run --locked build-index build --base-url "$R2_PUBLIC_URL"
 
       - name: Sync Simple API documents to R2
-        if: vars.R2_BUCKET != ''
         env:
           AWS_ACCESS_KEY_ID: ${{ vars.R2_ACCESS_KEY_ID }}
           AWS_EC2_METADATA_DISABLED: "true"

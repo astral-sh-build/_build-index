@@ -15,6 +15,7 @@ from packaging.utils import (
     canonicalize_name,
     parse_wheel_filename,
 )
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import Version
 
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -36,10 +37,14 @@ class CollectedArtifact:
     project: str
     version: str
     channel: str
-    url: str
+    source_url: str
+    download_url: str
     sha256: str
     size: int
     upload_time: str
+    published_url: str | None = None
+    metadata_sha256: str | None = None
+    requires_python: str | None = None
 
     @property
     def file_key(self) -> tuple[str, str, str]:
@@ -48,14 +53,18 @@ class CollectedArtifact:
     def as_dict(self) -> dict[str, Any]:
         return {
             "channel": self.channel,
+            "download_url": self.download_url,
             "filename": self.filename,
+            "metadata_sha256": self.metadata_sha256,
             "project": self.project,
+            "published_url": self.published_url,
             "release": self.release,
             "repository": self.repository,
+            "requires_python": self.requires_python,
             "sha256": self.sha256,
             "size": self.size,
+            "source_url": self.source_url,
             "upload_time": self.upload_time,
-            "url": self.url,
             "version": self.version,
         }
 
@@ -67,7 +76,7 @@ class ReleaseCollection:
     def as_dict(self) -> dict[str, Any]:
         return {
             "artifacts": [artifact.as_dict() for artifact in self.artifacts],
-            "schema_version": 1,
+            "schema_version": 2,
         }
 
 
@@ -124,8 +133,8 @@ def load_collection(path: Path) -> ReleaseCollection:
     if not isinstance(document, dict):
         raise CollectionError("collection must be a JSON object")
     _expect_keys(document, {"schema_version", "artifacts"}, "collection")
-    if document.get("schema_version") != 1:
-        raise CollectionError("collection.schema_version must be exactly 1")
+    if document.get("schema_version") != 2:
+        raise CollectionError("collection.schema_version must be exactly 2")
     values = document.get("artifacts")
     if not isinstance(values, list):
         raise CollectionError("collection.artifacts must be a list")
@@ -208,10 +217,14 @@ def _artifact_from_dict(value: Any, index: int) -> CollectedArtifact:
         "project",
         "version",
         "channel",
-        "url",
+        "source_url",
+        "download_url",
         "sha256",
         "size",
         "upload_time",
+        "published_url",
+        "metadata_sha256",
+        "requires_python",
     }
     _expect_keys(value, keys, context)
     missing = sorted(keys - set(value))
@@ -224,10 +237,14 @@ def _artifact_from_dict(value: Any, index: int) -> CollectedArtifact:
         project=_string(value, "project", context),
         version=_string(value, "version", context),
         channel=_string(value, "channel", context),
-        url=_string(value, "url", context),
+        source_url=_string(value, "source_url", context),
+        download_url=_string(value, "download_url", context),
         sha256=_string(value, "sha256", context),
         size=_integer(value, "size", context),
         upload_time=_string(value, "upload_time", context),
+        published_url=_optional_string(value, "published_url", context),
+        metadata_sha256=_optional_string(value, "metadata_sha256", context),
+        requires_python=_optional_string(value, "requires_python", context),
     )
 
 
@@ -260,14 +277,48 @@ def _validate_artifact(artifact: CollectedArtifact) -> None:
         ("project", artifact.project),
         ("version", artifact.version),
         ("channel", artifact.channel),
-        ("URL", artifact.url),
+        ("source URL", artifact.source_url),
+        ("download URL", artifact.download_url),
         ("upload time", artifact.upload_time),
     ):
         if not value:
             raise CollectionError(f"artifact has empty {label}: {artifact.filename}")
-    parsed = urlparse(artifact.url)
-    if parsed.scheme != "https" or not parsed.netloc or parsed.fragment:
-        raise CollectionError(f"artifact has invalid URL: {artifact.filename}")
+    for label, value in (
+        ("source URL", artifact.source_url),
+        ("download URL", artifact.download_url),
+        ("published URL", artifact.published_url),
+    ):
+        if value is None:
+            continue
+        parsed = urlparse(value)
+        if parsed.scheme != "https" or not parsed.netloc or parsed.fragment:
+            raise CollectionError(f"artifact has invalid {label}: {artifact.filename}")
+    if (artifact.published_url is None) != (artifact.metadata_sha256 is None):
+        raise CollectionError(
+            f"artifact has incomplete publication metadata: {artifact.filename}"
+        )
+    if artifact.metadata_sha256 is not None and not _SHA256_PATTERN.fullmatch(
+        artifact.metadata_sha256
+    ):
+        raise CollectionError(
+            f"artifact has invalid metadata SHA-256: {artifact.filename}"
+        )
+    if artifact.requires_python is not None:
+        if artifact.published_url is None:
+            raise CollectionError(
+                f"artifact has Requires-Python without publication metadata: "
+                f"{artifact.filename}"
+            )
+        try:
+            normalized_requires_python = str(SpecifierSet(artifact.requires_python))
+        except InvalidSpecifier as error:
+            raise CollectionError(
+                f"artifact has invalid Requires-Python: {artifact.filename}"
+            ) from error
+        if normalized_requires_python != artifact.requires_python:
+            raise CollectionError(
+                f"artifact has non-normalized Requires-Python: {artifact.filename}"
+            )
     if not _UPLOAD_TIME_PATTERN.fullmatch(artifact.upload_time):
         raise CollectionError(f"artifact has invalid upload time: {artifact.filename}")
     try:
@@ -295,6 +346,17 @@ def _integer(value: dict[str, Any], key: str, context: str) -> int:
     result = value[key]
     if not isinstance(result, int) or isinstance(result, bool):
         raise CollectionError(f"{context}.{key} must be an integer")
+    return result
+
+
+def _optional_string(
+    value: dict[str, Any],
+    key: str,
+    context: str,
+) -> str | None:
+    result = value[key]
+    if result is not None and not isinstance(result, str):
+        raise CollectionError(f"{context}.{key} must be a string or null")
     return result
 
 
