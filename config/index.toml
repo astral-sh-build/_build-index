@@ -104,9 +104,9 @@ projects = ["megablocks"]
 repository = "astral-sh-build/build-nvmolkit"
 projects = ["nvmolkit"]
 
-# [[repository]]
-# repository = "astral-sh-build/build-opencv"
-# projects = ["opencv-contrib-python-headless", "opencv-python-headless"]
+[[repository]]
+repository = "astral-sh-build/build-opencv"
+projects = ["opencv-contrib-python-headless", "opencv-python-headless"]
 
 # [[repository]]
 # repository = "astral-sh-build/build-pycuda"
