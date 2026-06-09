@@ -2,6 +2,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+import threading
 import zipfile
 from dataclasses import replace
 from pathlib import Path
@@ -67,6 +68,39 @@ class FakeStore:
     ) -> None:
         self.puts.append(key)
         self.objects[key] = (source.read_bytes(), metadata, content_type)
+
+
+class ConcurrentHeadStore(FakeStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.active = 0
+        self.maximum_active = 0
+        self.overlap = threading.Event()
+        self.lock = threading.Lock()
+
+    def head(self, key: str) -> ObjectInfo | None:
+        with self.lock:
+            self.active += 1
+            self.maximum_active = max(self.maximum_active, self.active)
+            if self.active > 1:
+                self.overlap.set()
+        self.overlap.wait(timeout=1)
+        try:
+            return super().head(key)
+        finally:
+            with self.lock:
+                self.active -= 1
+
+
+class FailingHeadStore(FakeStore):
+    def __init__(self, failure_key: str) -> None:
+        super().__init__()
+        self.failure_key = failure_key
+
+    def head(self, key: str) -> ObjectInfo | None:
+        if key == self.failure_key:
+            raise MirrorError(f"failed to check {key}")
+        return super().head(key)
 
 
 def make_wheel(path: Path, metadata: bytes | None = None) -> CollectedArtifact:
@@ -135,7 +169,10 @@ def test_mirror_publishes_wheel_and_exact_metadata_then_resumes(
         == hashlib.sha256(store.objects[f"{key}.metadata"][0]).hexdigest()
     )
     assert result.requires_python == "<3.14,>=3.10"
-    assert messages[0] == f"checking artifact 1/1: {FILENAME}"
+    assert messages[:2] == [
+        "checking existing mirror state: artifacts=1, workers=1",
+        f"checking artifact 1/1: {FILENAME}",
+    ]
 
     repeated = mirror_artifacts(
         CONFIG,
@@ -148,6 +185,105 @@ def test_mirror_publishes_wheel_and_exact_metadata_then_resumes(
     assert repeated == mirrored
     assert downloader.calls == 1
     assert store.puts == [key, f"{key}.metadata"]
+
+
+def test_mirror_checks_existing_artifacts_concurrently_and_preserves_order(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wheel = tmp_path / FILENAME
+    base = make_wheel(wheel)
+    artifacts = tuple(
+        replace(
+            base,
+            release=f"0.1.{index}",
+            filename=f"grouped_gemm-0.1.{index}+cu128-py3-none-any.whl",
+            version=f"0.1.{index}+cu128",
+            download_url=f"https://api.github.com/releases/assets/{index}",
+            sha256=f"{index + 1:064x}",
+            size=1,
+        )
+        for index in range(4)
+    )
+    collection = collection_from_artifacts(artifacts)
+    store = ConcurrentHeadStore()
+    metadata = b"metadata"
+    metadata_sha256 = hashlib.sha256(metadata).hexdigest()
+    for artifact in artifacts:
+        key = artifact_key(artifact)
+        store.objects[key] = (
+            b"x",
+            {
+                "format-version": "1",
+                "sha256": artifact.sha256,
+            },
+            "application/octet-stream",
+        )
+        store.objects[f"{key}.metadata"] = (
+            metadata,
+            {
+                "format-version": "1",
+                "sha256": metadata_sha256,
+                "wheel-sha256": artifact.sha256,
+            },
+            "application/octet-stream",
+        )
+    monkeypatch.setattr(mirror_module, "_MAX_HEAD_WORKERS", 2)
+    messages: list[str] = []
+
+    mirrored = mirror_artifacts(
+        CONFIG,
+        collection,
+        FakeDownloader(wheel),
+        store,
+        public_base_url="https://packages.example",
+        log=messages.append,
+    )
+
+    assert store.overlap.is_set()
+    assert store.maximum_active == 2
+    assert store.puts == []
+    assert [artifact.filename for artifact in mirrored.artifacts] == [
+        artifact.filename for artifact in collection.artifacts
+    ]
+    assert messages[0] == "checking existing mirror state: artifacts=4, workers=2"
+    assert messages[1::2] == [
+        f"checking artifact {index + 1}/4: {artifact.filename}"
+        for index, artifact in enumerate(mirrored.artifacts)
+    ]
+    assert messages[2::2] == [
+        f"already mirrored: {artifact.filename}" for artifact in mirrored.artifacts
+    ]
+
+
+def test_mirror_finishes_parallel_preflight_before_writes(tmp_path: Path) -> None:
+    wheel = tmp_path / FILENAME
+    base = make_wheel(wheel)
+    artifacts = tuple(
+        replace(
+            base,
+            release=f"0.1.{index}",
+            filename=f"grouped_gemm-0.1.{index}+cu128-py3-none-any.whl",
+            version=f"0.1.{index}+cu128",
+            download_url=f"https://api.github.com/releases/assets/{index}",
+            sha256=f"{index + 1:064x}",
+        )
+        for index in range(2)
+    )
+    downloader = FakeDownloader(wheel)
+    store = FailingHeadStore(artifact_key(artifacts[1]))
+
+    with pytest.raises(MirrorError, match="failed to check"):
+        mirror_artifacts(
+            CONFIG,
+            collection_from_artifacts(artifacts),
+            downloader,
+            store,
+            public_base_url="https://packages.example",
+        )
+
+    assert downloader.calls == 0
+    assert store.puts == []
 
 
 def test_mirror_rejects_wheel_with_wrong_digest(tmp_path: Path) -> None:

@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import zipfile
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from email import policy
 from email.message import Message
@@ -30,6 +31,7 @@ from build_index.collection import (
 from build_index.config import IndexConfig
 
 _ARTIFACT_CACHE_CONTROL = "public, max-age=31536000, immutable"
+_MAX_HEAD_WORKERS = 16
 _MAX_METADATA_SIZE = 10 * 1024 * 1024
 _OBJECT_FORMAT_VERSION = "1"
 
@@ -200,21 +202,41 @@ def mirror_artifacts(
     logger = log or (lambda _message: None)
     base_url = _validate_public_base_url(public_base_url)
     mirrored: list[CollectedArtifact] = []
+    repositories = []
+
+    for artifact in collection.artifacts:
+        repository = config.repository(artifact.repository)
+        if repository is None:
+            raise MirrorError(
+                f"collection contains an unconfigured repository: {artifact.repository}"
+            )
+        repositories.append(repository)
+
+    if collection.artifacts:
+        workers = min(_MAX_HEAD_WORKERS, len(collection.artifacts))
+        logger(
+            f"checking existing mirror state: artifacts={len(collection.artifacts)}, "
+            f"workers={workers}"
+        )
+    existing_metadata = _existing_metadata_for_artifacts(
+        store,
+        collection.artifacts,
+    )
 
     with tempfile.TemporaryDirectory(prefix="build-index-mirror-") as temporary:
         directory = Path(temporary)
         total = len(collection.artifacts)
-        for index, artifact in enumerate(collection.artifacts):
-            repository = config.repository(artifact.repository)
-            if repository is None:
-                raise MirrorError(
-                    f"collection contains an unconfigured repository: "
-                    f"{artifact.repository}"
-                )
+        for index, (artifact, repository, existing) in enumerate(
+            zip(
+                collection.artifacts,
+                repositories,
+                existing_metadata,
+                strict=True,
+            )
+        ):
             key = artifact_key(artifact)
             published_url = artifact_url(base_url, key)
             logger(f"checking artifact {index + 1}/{total}: {artifact.filename}")
-            existing = _existing_metadata(store, artifact, key)
             if existing is not None:
                 metadata_sha256, requires_python = existing
                 logger(f"already mirrored: {artifact.filename}")
@@ -370,19 +392,45 @@ def extract_core_metadata(
     )
 
 
+def _existing_metadata_for_artifacts(
+    store: ObjectStore,
+    artifacts: tuple[CollectedArtifact, ...],
+) -> tuple[tuple[str, str | None] | None, ...]:
+    if not artifacts:
+        return ()
+    workers = min(_MAX_HEAD_WORKERS, len(artifacts))
+    with ThreadPoolExecutor(
+        max_workers=workers,
+        thread_name_prefix="r2-head",
+    ) as executor:
+        futures = [
+            executor.submit(
+                _existing_metadata,
+                store,
+                artifact,
+                artifact_key(artifact),
+            )
+            for artifact in artifacts
+        ]
+        return tuple(future.result() for future in futures)
+
+
 def _existing_metadata(
     store: ObjectStore,
     artifact: CollectedArtifact,
     key: str,
 ) -> tuple[str, str | None] | None:
     wheel = store.head(key)
-    sidecar = store.head(f"{key}.metadata")
-    if wheel is None or sidecar is None:
-        return None
     if (
-        wheel.size != artifact.size
+        wheel is None
+        or wheel.size != artifact.size
         or wheel.metadata.get("format-version") != _OBJECT_FORMAT_VERSION
         or wheel.metadata.get("sha256") != artifact.sha256
+    ):
+        return None
+    sidecar = store.head(f"{key}.metadata")
+    if (
+        sidecar is None
         or sidecar.metadata.get("format-version") != _OBJECT_FORMAT_VERSION
         or sidecar.metadata.get("wheel-sha256") != artifact.sha256
     ):
