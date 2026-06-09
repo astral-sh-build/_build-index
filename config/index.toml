@@ -70,9 +70,11 @@ description = "CUDA 13.0 builds"
 # repository = "astral-sh-build/build-detectron2"
 # projects = ["detectron2"]
 
-# [[repository]]
-# repository = "astral-sh-build/build-ffmpeg"
-# projects = ["ffmpeg"]
+# Active R2 artifact-mirroring trial producers, selected from the smallest
+# current catalogs so the complete mirror path can be exercised cheaply.
+[[repository]]
+repository = "astral-sh-build/build-ffmpeg"
+projects = ["ffmpeg"]
 
 # [[repository]]
 # repository = "astral-sh-build/build-flash-attention"
@@ -82,8 +84,6 @@ description = "CUDA 13.0 builds"
 # repository = "astral-sh-build/build-flash-attention-3"
 # projects = ["flash-attn-3"]
 
-# Active R2 artifact-mirroring trial producers, selected from the smallest
-# current catalogs so the complete mirror path can be exercised cheaply.
 [[repository]]
 repository = "astral-sh-build/build-grouped-gemm"
 projects = ["grouped-gemm"]
