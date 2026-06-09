@@ -169,7 +169,7 @@ def main() -> None:
                     aws_cli=args.aws_cli,
                 ),
                 public_base_url=args.public_base_url,
-                log=print,
+                log=lambda message: print(message, flush=True),
             )
             write_collection(args.output, mirrored)
             print(
