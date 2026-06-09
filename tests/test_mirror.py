@@ -1,13 +1,12 @@
 import hashlib
-import json
 import shutil
-import subprocess
 import threading
 import zipfile
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from botocore.exceptions import ClientError
 
 from build_index.collection import CollectedArtifact, collection_from_artifacts
 from build_index.config import load_config
@@ -101,6 +100,28 @@ class FailingHeadStore(FakeStore):
         if key == self.failure_key:
             raise MirrorError(f"failed to check {key}")
         return super().head(key)
+
+
+class FakeS3Client:
+    def __init__(self) -> None:
+        self.head_response: dict[str, object] | Exception = {
+            "ContentLength": 123,
+            "Metadata": {"SHA256": "a" * 64},
+        }
+        self.head_calls: list[dict[str, object]] = []
+        self.put_calls: list[dict[str, object]] = []
+
+    def head_object(self, **kwargs: object) -> dict[str, object]:
+        self.head_calls.append(kwargs)
+        if isinstance(self.head_response, Exception):
+            raise self.head_response
+        return self.head_response
+
+    def put_object(self, **kwargs: object) -> dict[str, object]:
+        body = kwargs["Body"]
+        assert hasattr(body, "read")
+        self.put_calls.append({**kwargs, "Body": body.read()})
+        return {}
 
 
 def make_wheel(path: Path, metadata: bytes | None = None) -> CollectedArtifact:
@@ -350,37 +371,24 @@ def test_extract_core_metadata_rejects_unrelated_local_version(tmp_path: Path) -
 
 def test_s3_object_store_reads_resume_metadata_and_sets_immutable_headers(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls: list[list[str]] = []
-
-    def run(arguments: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
-        calls.append(arguments)
-        if arguments[2] == "head-object":
-            return subprocess.CompletedProcess(
-                arguments,
-                0,
-                stdout=json.dumps(
-                    {
-                        "ContentLength": 123,
-                        "Metadata": {"SHA256": "a" * 64},
-                    }
-                ),
-                stderr="",
-            )
-        return subprocess.CompletedProcess(arguments, 0, stdout="{}", stderr="")
-
-    monkeypatch.setattr(mirror_module.subprocess, "run", run)
+    client = FakeS3Client()
     store = S3ObjectStore(
         "index",
         "https://example.r2.cloudflarestorage.com",
-        aws_cli="aws",
+        client=client,
     )
 
     assert store.head("artifacts/example") == ObjectInfo(
         size=123,
         metadata={"sha256": "a" * 64},
     )
+    assert client.head_calls == [
+        {
+            "Bucket": "index",
+            "Key": "artifacts/example",
+        }
+    ]
     source = tmp_path / "wheel"
     source.write_bytes(b"wheel")
     store.put(
@@ -390,8 +398,41 @@ def test_s3_object_store_reads_resume_metadata_and_sets_immutable_headers(
         metadata={"sha256": "a" * 64},
     )
 
-    put = calls[1]
-    assert put[put.index("--cache-control") + 1] == (
-        "public, max-age=31536000, immutable"
+    assert client.put_calls == [
+        {
+            "Bucket": "index",
+            "Key": "artifacts/example",
+            "Body": b"wheel",
+            "ContentType": "application/octet-stream",
+            "CacheControl": "public, max-age=31536000, immutable",
+            "Metadata": {"sha256": "a" * 64},
+        }
+    ]
+
+
+def test_s3_object_store_handles_missing_and_failed_heads() -> None:
+    client = FakeS3Client()
+    store = S3ObjectStore(
+        "index",
+        "https://example.r2.cloudflarestorage.com",
+        client=client,
     )
-    assert json.loads(put[put.index("--metadata") + 1]) == {"sha256": "a" * 64}
+    client.head_response = ClientError(
+        {
+            "Error": {"Code": "404", "Message": "Not Found"},
+            "ResponseMetadata": {"HTTPStatusCode": 404},
+        },
+        "HeadObject",
+    )
+
+    assert store.head("artifacts/missing") is None
+
+    client.head_response = ClientError(
+        {
+            "Error": {"Code": "AccessDenied", "Message": "Access denied"},
+            "ResponseMetadata": {"HTTPStatusCode": 403},
+        },
+        "HeadObject",
+    )
+    with pytest.raises(MirrorError, match="AccessDenied: Access denied"):
+        store.head("artifacts/private")

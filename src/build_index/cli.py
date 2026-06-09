@@ -81,12 +81,6 @@ def main() -> None:
         default=os.environ.get("R2_ENDPOINT"),
         help="R2 S3 endpoint URL.",
     )
-    mirror_parser.add_argument(
-        "--aws-cli",
-        default=os.environ.get("AWS_CLI", "aws"),
-        help="AWS CLI executable.",
-    )
-
     build_parser = subparsers.add_parser(
         "build", help="Build static JSON and HTML Simple API documents."
     )
@@ -166,7 +160,6 @@ def main() -> None:
                 S3ObjectStore(
                     args.bucket,
                     args.endpoint,
-                    aws_cli=args.aws_cli,
                 ),
                 public_base_url=args.public_base_url,
                 log=lambda message: print(message, flush=True),

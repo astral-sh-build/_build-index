@@ -5,6 +5,7 @@ description = "Collect GitHub release wheels and build static Python package ind
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+  "boto3>=1.40",
   "packaging>=24.2",
 ]
 

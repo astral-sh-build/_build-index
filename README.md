@@ -146,11 +146,11 @@ rejecting unrelated versions. `Requires-Python` is validated and normalized
 when present.
 
 R2 object metadata records the wheel and core-metadata hashes plus normalized
-`Requires-Python`. Each fresh runner checks complete artifacts with bounded,
-parallel `head-object` requests, then preserves deterministic serial uploads
-for anything missing. An interrupted run resumes without a separate database.
-Artifact objects are immutable and are not deleted when a release leaves the
-index.
+`Requires-Python`. Each fresh runner uses a pooled in-process S3 client to
+check complete artifacts with bounded, parallel `head-object` requests, then
+preserves deterministic serial uploads for anything missing. An interrupted
+run resumes without a separate database. Artifact objects are immutable and
+are not deleted when a release leaves the index.
 
 Only after every selected wheel and metadata sidecar is present does the
 workflow generate index documents. Published project pages contain only R2
