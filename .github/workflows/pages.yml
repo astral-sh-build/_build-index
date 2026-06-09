@@ -68,7 +68,7 @@ jobs:
       - name: Sync Simple API documents to R2
         if: vars.R2_BUCKET != ''
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID: ${{ vars.R2_ACCESS_KEY_ID }}
           AWS_EC2_METADATA_DISABLED: "true"
           AWS_REGION: auto
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
