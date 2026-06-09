@@ -229,7 +229,7 @@ def test_collect_release_assets_normalizes_legacy_wheel_filename() -> None:
     assert collection.artifacts[0].filename == (
         "index_test_gpu-1.2.1+1300811.cu12.8torch2.10.0cxx11abiTRUE-py3-none-any.whl"
     )
-    assert collection.artifacts[0].url.endswith(source)
+    assert collection.artifacts[0].source_url.endswith(source)
     assert any("normalized wheel filename" in message for message in messages)
 
 
@@ -257,7 +257,9 @@ def test_collect_release_assets_hashes_asset_when_digest_is_absent() -> None:
     assert client.hash_requests == [api_url]
 
 
-def test_github_client_asset_hash_strips_auth_on_redirect() -> None:
+def test_github_client_asset_download_strips_auth_on_redirect(
+    tmp_path: Path,
+) -> None:
     content = b"release asset bytes"
 
     class FileHandler(BaseHTTPRequestHandler):
@@ -285,10 +287,14 @@ def test_github_client_asset_hash_strips_auth_on_redirect() -> None:
     api_thread.start()
     api_url = f"http://127.0.0.1:{api.server_address[1]}/asset"
     try:
-        assert (
-            GitHubClient("test-token").asset_sha256(api_url)
-            == hashlib.sha256(content).hexdigest()
+        client = GitHubClient("test-token")
+        assert client.asset_sha256(api_url) == hashlib.sha256(content).hexdigest()
+        destination = tmp_path / "wheel.whl"
+        assert client.download_asset(api_url, destination) == (
+            hashlib.sha256(content).hexdigest(),
+            len(content),
         )
+        assert destination.read_bytes() == content
     finally:
         api.shutdown()
         api.server_close()

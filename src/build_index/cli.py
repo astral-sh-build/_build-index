@@ -9,6 +9,7 @@ from pathlib import Path
 from build_index.collection import CollectionError, load_collection, write_collection
 from build_index.config import ConfigError, load_config, private_repository_scope
 from build_index.github import GitHubClient, collect_release_assets
+from build_index.mirror import S3ObjectStore, mirror_artifacts
 from build_index.pages import build_pages
 
 DEFAULT_CONFIG = Path("config/index.toml")
@@ -51,6 +52,39 @@ def main() -> None:
         "--github-output",
         type=Path,
         help="Write owner and repositories as GitHub Actions step outputs.",
+    )
+
+    mirror_parser = subparsers.add_parser(
+        "mirror",
+        help="Mirror collected wheels and core metadata to R2.",
+    )
+    mirror_parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    mirror_parser.add_argument("--collection", type=Path, default=DEFAULT_COLLECTION)
+    mirror_parser.add_argument("--output", type=Path, default=DEFAULT_COLLECTION)
+    mirror_parser.add_argument(
+        "--token-env",
+        default="GH_TOKEN",
+        help="Environment variable containing a GitHub token.",
+    )
+    mirror_parser.add_argument(
+        "--public-base-url",
+        default=os.environ.get("R2_PUBLIC_URL"),
+        help="Public base URL serving the R2 bucket.",
+    )
+    mirror_parser.add_argument(
+        "--bucket",
+        default=os.environ.get("R2_BUCKET"),
+        help="R2 bucket name.",
+    )
+    mirror_parser.add_argument(
+        "--endpoint",
+        default=os.environ.get("R2_ENDPOINT"),
+        help="R2 S3 endpoint URL.",
+    )
+    mirror_parser.add_argument(
+        "--aws-cli",
+        default=os.environ.get("AWS_CLI", "aws"),
+        help="AWS CLI executable.",
     )
 
     build_parser = subparsers.add_parser(
@@ -109,6 +143,39 @@ def main() -> None:
                         output.write("__BUILD_INDEX_REPOSITORIES__\n")
                     else:
                         output.write("repositories=\n")
+        elif args.command == "mirror":
+            config = load_config(args.config)
+            collection = load_collection(args.collection)
+            token = os.environ.get(args.token_env)
+            if not token and any(
+                repository.access == "private" for repository in config.repositories
+            ):
+                raise CollectionError(
+                    f"GitHub token environment variable is not set: {args.token_env}"
+                )
+            if not args.public_base_url:
+                raise CollectionError("R2 public base URL is not set")
+            if not args.bucket:
+                raise CollectionError("R2 bucket is not set")
+            if not args.endpoint:
+                raise CollectionError("R2 endpoint is not set")
+            mirrored = mirror_artifacts(
+                config,
+                collection,
+                GitHubClient(token),
+                S3ObjectStore(
+                    args.bucket,
+                    args.endpoint,
+                    aws_cli=args.aws_cli,
+                ),
+                public_base_url=args.public_base_url,
+                log=print,
+            )
+            write_collection(args.output, mirrored)
+            print(
+                f"mirrored release collection: {args.output}, "
+                f"{len(mirrored.artifacts)} wheel assets"
+            )
         elif args.command == "build":
             config = load_config(args.config)
             collection = load_collection(args.collection)
