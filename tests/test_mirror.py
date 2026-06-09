@@ -3,6 +3,7 @@ import json
 import shutil
 import subprocess
 import zipfile
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -183,6 +184,32 @@ def test_extract_core_metadata_allows_omitted_local_version(tmp_path: Path) -> N
     )
 
     assert extract_core_metadata(wheel, artifact).requires_python is None
+
+
+def test_extract_core_metadata_allows_local_version_prefix(tmp_path: Path) -> None:
+    wheel = tmp_path / FILENAME
+    artifact = make_wheel(
+        wheel,
+        b"Metadata-Version: 2.4\nName: grouped-gemm\nVersion: 0.1.0+build1\n\n",
+    )
+    artifact = replace(
+        artifact,
+        filename="grouped_gemm-0.1.0+build1.cu128-py3-none-any.whl",
+        version="0.1.0+build1.cu128",
+    )
+
+    assert extract_core_metadata(wheel, artifact).requires_python is None
+
+
+def test_extract_core_metadata_rejects_unrelated_local_version(tmp_path: Path) -> None:
+    wheel = tmp_path / FILENAME
+    artifact = make_wheel(
+        wheel,
+        b"Metadata-Version: 2.4\nName: grouped-gemm\nVersion: 0.1.0+cu129\n\n",
+    )
+
+    with pytest.raises(MirrorError, match="Version does not match"):
+        extract_core_metadata(wheel, artifact)
 
 
 def test_s3_object_store_reads_resume_metadata_and_sets_immutable_headers(

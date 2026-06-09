@@ -139,8 +139,11 @@ artifacts/<wheel-sha256>/<filename>.metadata
 The wheel is downloaded through GitHub's authenticated release-asset API, and
 its size and SHA-256 are verified before publication. The exact
 `.dist-info/METADATA` bytes are extracted without rewriting the wheel or the
-metadata. The metadata name and version must agree with the wheel filename,
-and `Requires-Python` is validated and normalized when present.
+metadata. The metadata name and public version must agree with the wheel
+filename. Its local version may be omitted or may be a dot-delimited prefix of
+the filename's local version, allowing producer-added build dimensions while
+rejecting unrelated versions. `Requires-Python` is validated and normalized
+when present.
 
 R2 object metadata records the wheel and core-metadata hashes plus normalized
 `Requires-Python`. Each fresh runner uses `head-object` to skip complete
