@@ -117,7 +117,7 @@ R2 publication is enabled when these repository settings are configured:
 | --- | --- | --- |
 | `R2_ENDPOINT` | Variable | `https://<account-id>.r2.cloudflarestorage.com` |
 | `R2_BUCKET` | Variable | Destination bucket name |
-| `R2_ACCESS_KEY_ID` | Secret | Bucket-scoped R2 S3 access key |
+| `R2_ACCESS_KEY_ID` | Variable | Bucket-scoped R2 S3 access key ID |
 | `R2_SECRET_ACCESS_KEY` | Secret | Bucket-scoped R2 S3 secret key |
 
 The R2 credentials should have object read and write access only to the target
