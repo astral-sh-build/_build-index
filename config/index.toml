@@ -124,9 +124,9 @@ projects = ["megablocks"]
 # repository = "astral-sh-build/build-sageattention"
 # projects = ["sageattention"]
 
-# [[repository]]
-# repository = "astral-sh-build/build-sageattention3"
-# projects = ["sageattn3"]
+[[repository]]
+repository = "astral-sh-build/build-sageattention3"
+projects = ["sageattn3"]
 
 # [[repository]]
 # repository = "astral-sh-build/build-transformer-engine-torch"
