@@ -39,114 +39,119 @@ description = "CUDA 13.0 builds"
 
 # Repository entries admit a producer and its projects. Channels are inferred
 # from each wheel and checked against the global channel list above.
-[[repository]]
-repository = "astral-sh-build/build-adan"
-projects = ["adan"]
+# Temporarily limit publication to the smallest producer while R2 artifact
+# mirroring is implemented and exercised end to end. Restore the commented
+# repository blocks after the mirroring path is proven resumable.
+# [[repository]]
+# repository = "astral-sh-build/build-adan"
+# projects = ["adan"]
 
-[[repository]]
-repository = "astral-sh-build/build-apex"
-projects = ["apex"]
+# [[repository]]
+# repository = "astral-sh-build/build-apex"
+# projects = ["apex"]
 
-[[repository]]
-repository = "astral-sh-build/build-causal-conv1d"
-projects = ["causal-conv1d"]
+# [[repository]]
+# repository = "astral-sh-build/build-causal-conv1d"
+# projects = ["causal-conv1d"]
 
-[[repository]]
-repository = "astral-sh-build/build-deepep"
-projects = ["deep-ep"]
+# [[repository]]
+# repository = "astral-sh-build/build-deepep"
+# projects = ["deep-ep"]
 
-[[repository]]
-repository = "astral-sh-build/build-deepgemm"
-projects = ["deep-gemm"]
+# [[repository]]
+# repository = "astral-sh-build/build-deepgemm"
+# projects = ["deep-gemm"]
 
-[[repository]]
-repository = "astral-sh-build/build-deepspeed"
-projects = ["deepspeed"]
+# [[repository]]
+# repository = "astral-sh-build/build-deepspeed"
+# projects = ["deepspeed"]
 
-[[repository]]
-repository = "astral-sh-build/build-detectron2"
-projects = ["detectron2"]
+# [[repository]]
+# repository = "astral-sh-build/build-detectron2"
+# projects = ["detectron2"]
 
-[[repository]]
-repository = "astral-sh-build/build-ffmpeg"
-projects = ["ffmpeg"]
+# [[repository]]
+# repository = "astral-sh-build/build-ffmpeg"
+# projects = ["ffmpeg"]
 
-[[repository]]
-repository = "astral-sh-build/build-flash-attention"
-projects = ["flash-attn"]
+# [[repository]]
+# repository = "astral-sh-build/build-flash-attention"
+# projects = ["flash-attn"]
 
-[[repository]]
-repository = "astral-sh-build/build-flash-attention-3"
-projects = ["flash-attn-3"]
+# [[repository]]
+# repository = "astral-sh-build/build-flash-attention-3"
+# projects = ["flash-attn-3"]
 
+# Active R2 artifact-mirroring trial producer, selected as the smallest current
+# catalog so the complete mirror path can be exercised cheaply.
 [[repository]]
 repository = "astral-sh-build/build-grouped-gemm"
 projects = ["grouped-gemm"]
 
-[[repository]]
-repository = "astral-sh-build/build-mamba"
-projects = ["mamba-ssm"]
+# [[repository]]
+# repository = "astral-sh-build/build-mamba"
+# projects = ["mamba-ssm"]
 
-[[repository]]
-repository = "astral-sh-build/build-megablocks"
-projects = ["megablocks"]
+# [[repository]]
+# repository = "astral-sh-build/build-megablocks"
+# projects = ["megablocks"]
 
-[[repository]]
-repository = "astral-sh-build/build-mmcv"
-projects = ["mmcv"]
+# [[repository]]
+# repository = "astral-sh-build/build-mmcv"
+# projects = ["mmcv"]
 
-[[repository]]
-repository = "astral-sh-build/build-nvmolkit"
-projects = ["nvmolkit"]
+# [[repository]]
+# repository = "astral-sh-build/build-nvmolkit"
+# projects = ["nvmolkit"]
 
-[[repository]]
-repository = "astral-sh-build/build-opencv"
-projects = ["opencv-contrib-python-headless", "opencv-python-headless"]
+# [[repository]]
+# repository = "astral-sh-build/build-opencv"
+# projects = ["opencv-contrib-python-headless", "opencv-python-headless"]
 
-[[repository]]
-repository = "astral-sh-build/build-pycuda"
-projects = ["pycuda"]
+# [[repository]]
+# repository = "astral-sh-build/build-pycuda"
+# projects = ["pycuda"]
 
-[[repository]]
-repository = "astral-sh-build/build-pytorch-scatter"
-projects = ["torch-scatter"]
+# [[repository]]
+# repository = "astral-sh-build/build-pytorch-scatter"
+# projects = ["torch-scatter"]
 
-[[repository]]
-repository = "astral-sh-build/build-pytorch3d"
-projects = ["pytorch3d"]
+# [[repository]]
+# repository = "astral-sh-build/build-pytorch3d"
+# projects = ["pytorch3d"]
 
-[[repository]]
-repository = "astral-sh-build/build-sageattention"
-projects = ["sageattention"]
+# [[repository]]
+# repository = "astral-sh-build/build-sageattention"
+# projects = ["sageattention"]
 
-[[repository]]
-repository = "astral-sh-build/build-sageattention3"
-projects = ["sageattn3"]
+# [[repository]]
+# repository = "astral-sh-build/build-sageattention3"
+# projects = ["sageattn3"]
 
-[[repository]]
-repository = "astral-sh-build/build-transformer-engine-torch"
-projects = ["transformer-engine-torch"]
+# [[repository]]
+# repository = "astral-sh-build/build-transformer-engine-torch"
+# projects = ["transformer-engine-torch"]
 
 # Keep the two vLLM sources together. Astral builds remain authoritative for
 # CPU wheels; upstream CPU wheels are ignored below to avoid duplicate sources.
-[[repository]]
-repository = "astral-sh-build/build-vllm"
-projects = ["vllm"]
+# [[repository]]
+# repository = "astral-sh-build/build-vllm"
+# projects = ["vllm"]
 
 # Upstream releases are imported from the first version with GitHub-provided
 # asset digests. Explicit wheel labels win; bare wheels use only the reviewed,
 # bounded CUDA mappings below. Extend the final bound deliberately when a new
 # upstream default is verified so an unknown default fails collection closed.
-[[repository]]
-repository = "vllm-project/vllm"
-projects = ["vllm"]
-access = "public"
-tag_regex = "^v(?P<version>.+)$"
-minimum_release_version = "0.9.1"
-ignored_channels = ["cpu"]
+# [[repository]]
+# repository = "vllm-project/vllm"
+# projects = ["vllm"]
+# access = "public"
+# tag_regex = "^v(?P<version>.+)$"
+# minimum_release_version = "0.9.1"
+# ignored_channels = ["cpu"]
 
-unlabeled_channel_rules = [
-  { from = "0.9.1", before = "0.12.0", channel = "cu128" },
-  { from = "0.12.0", before = "0.20.0", channel = "cu129" },
-  { from = "0.20.0", before = "0.23.0", channel = "cu130" },
-]
+# unlabeled_channel_rules = [
+#   { from = "0.9.1", before = "0.12.0", channel = "cu128" },
+#   { from = "0.12.0", before = "0.20.0", channel = "cu129" },
+#   { from = "0.20.0", before = "0.23.0", channel = "cu130" },
+# ]
