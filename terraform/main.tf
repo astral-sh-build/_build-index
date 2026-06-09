@@ -69,12 +69,6 @@ locals {
     }
   }
 
-  transform_rules = [
-    local.simple_default_json_rewrite_rule,
-    local.simple_json_index_rewrite_rule,
-    local.simple_html_index_rewrite_rule,
-  ]
-
   simple_cache_rule = {
     action      = "set_cache_settings"
     description = "Cache static build index Simple API responses"
@@ -143,9 +137,6 @@ locals {
     }
   }
 
-  cache_rules = [
-    local.simple_cache_rule,
-  ]
 }
 
 resource "cloudflare_r2_bucket" "index" {
@@ -154,18 +145,6 @@ resource "cloudflare_r2_bucket" "index" {
   jurisdiction  = var.jurisdiction
   location      = var.location
   storage_class = var.storage_class
-
-  lifecycle {
-    precondition {
-      condition     = var.manage_zone_cache_ruleset != null
-      error_message = "manage_zone_cache_ruleset must be set explicitly."
-    }
-
-    precondition {
-      condition     = var.manage_zone_transform_ruleset != null
-      error_message = "manage_zone_transform_ruleset must be set explicitly."
-    }
-  }
 }
 
 resource "cloudflare_r2_managed_domain" "index" {
@@ -186,25 +165,25 @@ resource "cloudflare_r2_custom_domain" "index" {
 }
 
 resource "cloudflare_ruleset" "simple_cache" {
-  count = var.manage_zone_cache_ruleset == true ? 1 : 0
-
   zone_id     = var.cloudflare_zone_id
   name        = "Build index public cache"
   description = "Cache rules for the static build index"
   kind        = "zone"
   phase       = "http_request_cache_settings"
-  rules       = local.cache_rules
+  rules       = [local.simple_cache_rule]
 }
 
 resource "cloudflare_ruleset" "simple_rewrites" {
-  count = var.manage_zone_transform_ruleset == true ? 1 : 0
-
   zone_id     = var.cloudflare_zone_id
   name        = "Build index public URL rewrites"
   description = "URL rewrites for the static build index"
   kind        = "zone"
   phase       = "http_request_transform"
-  rules       = local.transform_rules
+  rules = [
+    local.simple_default_json_rewrite_rule,
+    local.simple_json_index_rewrite_rule,
+    local.simple_html_index_rewrite_rule,
+  ]
 }
 
 resource "cloudflare_tiered_cache" "index" {

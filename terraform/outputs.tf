@@ -26,22 +26,12 @@ output "github_actions_variables" {
   }
 }
 
-output "cache_rules" {
-  description = "Rules to merge into a zone-owned http_request_cache_settings ruleset when this stack does not own that phase."
-  value       = local.cache_rules
-}
-
-output "transform_rules" {
-  description = "Rules to merge into a zone-owned http_request_transform ruleset when this stack does not own that phase."
-  value       = local.transform_rules
-}
-
 output "cache_ruleset_id" {
-  description = "ID of the cache ruleset when this stack manages it, otherwise null."
-  value       = try(cloudflare_ruleset.simple_cache[0].id, null)
+  description = "ID of the zone cache ruleset."
+  value       = cloudflare_ruleset.simple_cache.id
 }
 
 output "transform_ruleset_id" {
-  description = "ID of the URL rewrite ruleset when this stack manages it, otherwise null."
-  value       = try(cloudflare_ruleset.simple_rewrites[0].id, null)
+  description = "ID of the zone URL rewrite ruleset."
+  value       = cloudflare_ruleset.simple_rewrites.id
 }

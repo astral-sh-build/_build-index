@@ -11,6 +11,11 @@ generated package indexes:
 - Short-lived cache settings for `/simple/`.
 - Optional Smart Tiered Cache.
 
+This stack assumes it owns the configured Cloudflare zone. In particular, it
+manages the zone's complete `http_request_cache_settings` and
+`http_request_transform` entry-point rulesets. Do not apply it to a zone where
+another Terraform stack manages either phase.
+
 It does not create the R2 S3 access key used by GitHub Actions. Creating that
 secret through Terraform would place it in Terraform state. Create a
 bucket-scoped Object Read & Write token separately and store its access key ID
@@ -38,24 +43,6 @@ The transform rules expose them as:
 
 These are internal rewrites. Client-visible URLs remain unchanged.
 
-## Zone Ruleset Ownership
-
-Cloudflare permits one zone entry-point ruleset per phase. Before applying,
-determine which Terraform stack owns:
-
-- `http_request_cache_settings`
-- `http_request_transform`
-
-If this stack is the sole owner, set the corresponding
-`manage_zone_*_ruleset` variable to `true`.
-
-If another stack owns a phase, set the variable to `false` and merge this
-stack's `cache_rules` or `transform_rules` output into the owner. Do not create
-two independent `cloudflare_ruleset` resources for the same zone and phase.
-
-Smart Tiered Cache is also zone-wide. Enable it here only when this stack owns
-that setting.
-
 ## Deploy
 
 The Cloudflare API token used by Terraform needs:
@@ -63,8 +50,8 @@ The Cloudflare API token used by Terraform needs:
 - Account: Workers R2 Storage Write
 - Account: Workers R2 Storage Read
 - Zone access for the configured zone
-- Zone: Cache Settings Write when managing the cache ruleset
-- Zone: Transform Rules Write and Account Rulesets Read when managing rewrites
+- Zone: Cache Settings Write
+- Zone: Transform Rules Write and Account Rulesets Read
 - Zone: Zone Settings Write when enabling Smart Tiered Cache
 
 Configure a Terraform backend appropriate for the deployment environment before
