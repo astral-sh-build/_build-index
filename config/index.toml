@@ -68,9 +68,9 @@ projects = ["deep-gemm"]
 # repository = "astral-sh-build/build-deepspeed"
 # projects = ["deepspeed"]
 
-# [[repository]]
-# repository = "astral-sh-build/build-detectron2"
-# projects = ["detectron2"]
+[[repository]]
+repository = "astral-sh-build/build-detectron2"
+projects = ["detectron2"]
 
 [[repository]]
 repository = "astral-sh-build/build-ffmpeg"
