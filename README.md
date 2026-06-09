@@ -9,7 +9,7 @@ It does five things:
 2. Selects the highest trailing `-rN` revision for each release family.
 3. Validates wheel projects and assigns each wheel to a configured channel.
 4. Generates deterministic PEP 691 JSON and HTML index documents.
-5. Syncs the explicit JSON and HTML Simple API trees to Cloudflare R2.
+5. Syncs the generated Simple API documents to Cloudflare R2.
 
 It does not build wheels, mirror dependencies, or retain publication history.
 Invalid legacy wheel names with repeated local-version `+` separators are
@@ -107,7 +107,7 @@ anonymous fallback.
 
 The Pages workflow derives its explicit GitHub App repository scope from the
 active configuration, polls those repositories, builds the complete static
-tree, optionally syncs its explicit Simple API documents to R2, and replaces
+tree, optionally syncs its Simple API documents to R2, and replaces
 the `pages` branch. With no configured repositories it publishes an empty
 index. The branch remains available for review.
 
@@ -120,22 +120,27 @@ R2 publication is enabled when these repository settings are configured:
 | `R2_ACCESS_KEY_ID` | Secret | Bucket-scoped R2 S3 access key |
 | `R2_SECRET_ACCESS_KEY` | Secret | Bucket-scoped R2 S3 secret key |
 
-The bucket, custom domain, URL rewrites, and cache behavior are managed by the
-[`terraform/`](terraform/README.md) stack. Its outputs provide the two
-non-secret GitHub variables. R2 access keys remain separately managed secrets
-so they are not stored in Terraform state.
-
 The R2 credentials should have object read and write access only to the target
-bucket. The sync owns only `simple/v1+json/` and `simple/v1+html/`; it does not
-delete or upload any future `artifacts/` objects. The conventional
-trailing-slash URLs require Cloudflare routing to append `index.json` or
-`index.html`; direct R2 object URLs include those filenames. The default
-`/simple/<channel>/` JSON alias is also a CDN rewrite concern.
+bucket. Cloudflare resources are provisioned separately; this repository needs
+only the bucket's S3 endpoint and credentials.
 
-The workflow uses the AWS CLI included in GitHub's Ubuntu runner. Each endpoint
-tree is mirrored with `aws s3 sync --delete`, its PEP 691 media type, and a
-short cache lifetime. Keeping R2 publication in the workflow avoids adding an
-S3 SDK and publisher abstraction to this small package.
+The workflow uses the AWS CLI and `jq` included in GitHub's Ubuntu runner. It
+publishes every generated `dist/simple/**/index.json` or `index.html` document
+to the R2 object key for its canonical trailing-slash URL:
+
+```text
+dist/simple/cu128/vllm/index.json
+  -> simple/cu128/vllm/
+
+dist/simple/v1+html/cu128/vllm/index.html
+  -> simple/v1+html/cu128/vllm/
+```
+
+This makes the default JSON and explicit JSON/HTML endpoints work directly
+through an R2 custom domain without Cloudflare URL rewrites. Project documents
+are uploaded before channel roots, and stale objects are deleted only after all
+new objects succeed. The sync owns the complete `simple/` object prefix but
+does not delete or upload any future `artifacts/` objects.
 
 Wheel URLs still point to GitHub Release assets. Copying wheel bytes belongs in
 the later artifact-ingestion change because it also requires public URL

@@ -1,7 +1,0 @@
-cloudflare_account_id = "00000000000000000000000000000000"
-cloudflare_zone_id    = "11111111111111111111111111111111"
-bucket_name           = "astral-build-index"
-public_hostname       = "packages.example.com"
-
-# This stack owns the zone settings, but Smart Tiered Cache remains optional.
-enable_smart_tiered_cache = false

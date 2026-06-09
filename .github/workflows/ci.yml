@@ -52,32 +52,3 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: uv run --locked zizmor --format=github .
-
-  terraform:
-    name: Terraform
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-        with:
-          terraform_version: 1.15.5
-
-      - name: Check Terraform formatting
-        run: terraform -chdir=terraform fmt -check -recursive
-
-      - name: Initialize Terraform
-        run: terraform -chdir=terraform init -backend=false -input=false -lockfile=readonly
-
-      - name: Validate Terraform
-        run: terraform -chdir=terraform validate
-
-      - name: Test Terraform
-        run: terraform -chdir=terraform test
