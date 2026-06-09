@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
-import subprocess
 import tempfile
 import zipfile
 from collections.abc import Callable
@@ -14,9 +12,12 @@ from email import policy
 from email.message import Message
 from email.parser import BytesParser
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 from urllib.parse import quote, urlparse
 
+from boto3.session import Session
+from botocore.config import Config
+from botocore.exceptions import BotoCoreError, ClientError
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
@@ -78,15 +79,21 @@ class ObjectStore(Protocol):
     ) -> None: ...
 
 
+class S3Client(Protocol):
+    def head_object(self, **kwargs: object) -> dict[str, Any]: ...
+
+    def put_object(self, **kwargs: object) -> dict[str, Any]: ...
+
+
 class S3ObjectStore:
-    """Small AWS CLI wrapper for an R2 bucket."""
+    """Small pooled S3 client for an R2 bucket."""
 
     def __init__(
         self,
         bucket: str,
         endpoint: str,
         *,
-        aws_cli: str = "aws",
+        client: S3Client | None = None,
     ) -> None:
         if not bucket:
             raise MirrorError("R2 bucket must not be empty")
@@ -95,44 +102,35 @@ class S3ObjectStore:
             raise MirrorError("R2 endpoint must be an HTTPS URL")
         self.bucket = bucket
         self.endpoint = endpoint.rstrip("/")
-        self.aws_cli = aws_cli
+        self.client = client or Session().client(
+            "s3",
+            endpoint_url=self.endpoint,
+            region_name="auto",
+            config=Config(
+                max_pool_connections=_MAX_HEAD_WORKERS,
+                request_checksum_calculation="when_required",
+                response_checksum_validation="when_required",
+                retries={"mode": "standard", "total_max_attempts": 4},
+                s3={"addressing_style": "path"},
+                signature_version="s3v4",
+                tcp_keepalive=True,
+            ),
+        )
 
     def head(self, key: str) -> ObjectInfo | None:
-        result = subprocess.run(
-            [
-                self.aws_cli,
-                "s3api",
-                "head-object",
-                "--endpoint-url",
-                self.endpoint,
-                "--bucket",
-                self.bucket,
-                "--key",
-                key,
-                "--output",
-                "json",
-                "--no-cli-pager",
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            error = result.stderr.lower()
-            if any(
-                marker in error
-                for marker in ("(404)", "not found", "nosuchkey", "no such key")
-            ):
+        try:
+            document = self.client.head_object(Bucket=self.bucket, Key=key)
+        except ClientError as error:
+            response = error.response
+            code = str(response.get("Error", {}).get("Code", ""))
+            status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            if code in {"404", "NoSuchKey", "NotFound"} or status == 404:
                 return None
             raise MirrorError(
-                f"R2 head-object failed for {key}: {result.stderr.strip()}"
-            )
-        try:
-            document = json.loads(result.stdout)
-        except json.JSONDecodeError as error:
-            raise MirrorError(
-                f"R2 head-object returned invalid JSON for {key}"
+                f"R2 head-object failed for {key}: {_client_error_message(error)}"
             ) from error
+        except BotoCoreError as error:
+            raise MirrorError(f"R2 head-object failed for {key}: {error}") from error
         size = document.get("ContentLength")
         metadata = document.get("Metadata", {})
         if (
@@ -158,35 +156,22 @@ class S3ObjectStore:
         content_type: str,
         metadata: dict[str, str],
     ) -> None:
-        result = subprocess.run(
-            [
-                self.aws_cli,
-                "s3api",
-                "put-object",
-                "--endpoint-url",
-                self.endpoint,
-                "--bucket",
-                self.bucket,
-                "--key",
-                key,
-                "--body",
-                str(source),
-                "--content-type",
-                content_type,
-                "--cache-control",
-                _ARTIFACT_CACHE_CONTROL,
-                "--metadata",
-                json.dumps(metadata, sort_keys=True, separators=(",", ":")),
-                "--no-cli-pager",
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
+        try:
+            with source.open("rb") as body:
+                self.client.put_object(
+                    Bucket=self.bucket,
+                    Key=key,
+                    Body=body,
+                    ContentType=content_type,
+                    CacheControl=_ARTIFACT_CACHE_CONTROL,
+                    Metadata=metadata,
+                )
+        except ClientError as error:
             raise MirrorError(
-                f"R2 put-object failed for {key}: {result.stderr.strip()}"
-            )
+                f"R2 put-object failed for {key}: {_client_error_message(error)}"
+            ) from error
+        except (BotoCoreError, OSError) as error:
+            raise MirrorError(f"R2 put-object failed for {key}: {error}") from error
 
 
 def mirror_artifacts(
@@ -456,6 +441,13 @@ def _single_header(message: Message, name: str, filename: str) -> str:
             f"wheel metadata must contain exactly one {name} field: {filename}"
         )
     return values[0].strip()
+
+
+def _client_error_message(error: ClientError) -> str:
+    details = error.response.get("Error", {})
+    code = str(details.get("Code", "unknown"))
+    message = str(details.get("Message", "unknown error"))
+    return f"{code}: {message}"
 
 
 def _metadata_version_matches_filename(
