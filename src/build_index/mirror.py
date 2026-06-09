@@ -340,8 +340,10 @@ def extract_core_metadata(
             f"wheel metadata has invalid Version: {artifact.filename}"
         ) from error
     _distribution, filename_version = parse_collected_wheel_filename(artifact.filename)
-    filename_public_version = Version(filename_version.public)
-    if parsed_metadata_version not in {filename_version, filename_public_version}:
+    if not _metadata_version_matches_filename(
+        parsed_metadata_version,
+        filename_version,
+    ):
         raise MirrorError(
             f"wheel metadata Version does not match filename: {artifact.filename}"
         )
@@ -406,6 +408,22 @@ def _single_header(message: Message, name: str, filename: str) -> str:
             f"wheel metadata must contain exactly one {name} field: {filename}"
         )
     return values[0].strip()
+
+
+def _metadata_version_matches_filename(
+    metadata_version: Version,
+    filename_version: Version,
+) -> bool:
+    if metadata_version.public != filename_version.public:
+        return False
+    if metadata_version.local is None:
+        return True
+    if filename_version.local is None:
+        return False
+    return (
+        filename_version.local == metadata_version.local
+        or filename_version.local.startswith(f"{metadata_version.local}.")
+    )
 
 
 def _is_sha256(value: str) -> bool:
