@@ -1,0 +1,13 @@
+cloudflare_account_id = "00000000000000000000000000000000"
+cloudflare_zone_id    = "11111111111111111111111111111111"
+bucket_name           = "astral-build-index"
+public_hostname       = "packages.example.com"
+
+# A zone has only one entry-point ruleset per phase. Set these to true only if
+# this stack is the sole owner; otherwise merge the corresponding outputs into
+# the Terraform stack that already owns the zone rulesets.
+manage_zone_cache_ruleset     = true
+manage_zone_transform_ruleset = true
+
+# This is zone-wide. Leave false if another stack owns zone settings.
+enable_smart_tiered_cache = false
