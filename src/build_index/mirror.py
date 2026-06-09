@@ -203,6 +203,7 @@ def mirror_artifacts(
 
     with tempfile.TemporaryDirectory(prefix="build-index-mirror-") as temporary:
         directory = Path(temporary)
+        total = len(collection.artifacts)
         for index, artifact in enumerate(collection.artifacts):
             repository = config.repository(artifact.repository)
             if repository is None:
@@ -212,6 +213,7 @@ def mirror_artifacts(
                 )
             key = artifact_key(artifact)
             published_url = artifact_url(base_url, key)
+            logger(f"checking artifact {index + 1}/{total}: {artifact.filename}")
             existing = _existing_metadata(store, artifact, key)
             if existing is not None:
                 metadata_sha256, requires_python = existing

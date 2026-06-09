@@ -105,6 +105,7 @@ def test_mirror_publishes_wheel_and_exact_metadata_then_resumes(
     collection = collection_from_artifacts([artifact])
     downloader = FakeDownloader(wheel)
     store = FakeStore()
+    messages: list[str] = []
 
     mirrored = mirror_artifacts(
         CONFIG,
@@ -112,6 +113,7 @@ def test_mirror_publishes_wheel_and_exact_metadata_then_resumes(
         downloader,
         store,
         public_base_url="https://packages.example",
+        log=messages.append,
     )
 
     result = mirrored.artifacts[0]
@@ -132,6 +134,7 @@ def test_mirror_publishes_wheel_and_exact_metadata_then_resumes(
         == hashlib.sha256(store.objects[f"{key}.metadata"][0]).hexdigest()
     )
     assert result.requires_python == "<3.14,>=3.10"
+    assert messages[0] == f"checking artifact 1/1: {FILENAME}"
 
     repeated = mirror_artifacts(
         CONFIG,
