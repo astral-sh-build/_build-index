@@ -103,28 +103,6 @@ variable "simple_edge_ttl_seconds" {
   }
 }
 
-variable "manage_zone_cache_ruleset" {
-  description = <<-EOT
-    Whether this stack owns the zone's http_request_cache_settings entry-point
-    ruleset. Set true only when no other Terraform resource manages that phase.
-    When false, merge the cache_rules output into the zone-owning stack.
-  EOT
-  type        = bool
-  default     = null
-  nullable    = true
-}
-
-variable "manage_zone_transform_ruleset" {
-  description = <<-EOT
-    Whether this stack owns the zone's http_request_transform entry-point
-    ruleset. Set true only when no other Terraform resource manages that phase.
-    When false, merge the transform_rules output into the zone-owning stack.
-  EOT
-  type        = bool
-  default     = null
-  nullable    = true
-}
-
 variable "enable_smart_tiered_cache" {
   description = "Whether this stack enables the zone-wide Smart Tiered Cache setting."
   type        = bool
