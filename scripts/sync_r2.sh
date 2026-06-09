@@ -6,9 +6,15 @@ input="${1:-dist}"
 simple_root="${input%/}/simple"
 aws_cli="${AWS_CLI:-aws}"
 cache_control="public, max-age=60, stale-while-revalidate=300"
+upload_concurrency="${R2_UPLOAD_CONCURRENCY:-16}"
 
 : "${R2_BUCKET:?R2_BUCKET must be set}"
 : "${R2_ENDPOINT:?R2_ENDPOINT must be set}"
+
+if [[ ! "$upload_concurrency" =~ ^[1-9][0-9]*$ ]]; then
+  echo "R2_UPLOAD_CONCURRENCY must be a positive integer" >&2
+  exit 1
+fi
 
 if [[ ! -d "$simple_root" ]]; then
   echo "missing generated Simple API tree: $simple_root" >&2
@@ -49,9 +55,19 @@ while IFS= read -r -d '' source; do
       content_type="application/vnd.pypi.simple.v1+html"
       ;;
   esac
-  slashes="${key//[^\/]/}"
+
+  if [[ "$key" == "simple/" ]]; then
+    stage=1
+  elif [[ "$key" == simple/v1+json/* || "$key" == simple/v1+html/* ]]; then
+    suffix="${key#simple/v1+*/}"
+    [[ "${suffix%/}" == */* ]] && stage=3 || stage=2
+  else
+    suffix="${key#simple/}"
+    [[ "${suffix%/}" == */* ]] && stage=3 || stage=2
+  fi
+
   printf '%d\t%s\t%s\t%s\n' \
-    "${#slashes}" "$key" "$source" "$content_type" >>"$manifest"
+    "$stage" "$key" "$source" "$content_type" >>"$manifest"
 done < <(find "$simple_root" -type f -print0)
 
 if [[ ! -s "$manifest" ]]; then
@@ -61,8 +77,11 @@ fi
 
 cut -f2 "$manifest" | LC_ALL=C sort -u >"$desired"
 
-# Publish deeper project documents before their channel and service roots.
-while IFS=$'\t' read -r _depth key source content_type; do
+upload_document() {
+  local key="$1"
+  local source="$2"
+  local content_type="$3"
+
   "$aws_cli" s3api put-object \
     --endpoint-url "$R2_ENDPOINT" \
     --bucket "$R2_BUCKET" \
@@ -72,7 +91,30 @@ while IFS=$'\t' read -r _depth key source content_type; do
     --cache-control "$cache_control" \
     --no-cli-pager >/dev/null
   echo "uploaded s3://$R2_BUCKET/$key"
-done < <(LC_ALL=C sort -t $'\t' -k1,1nr -k2,2 "$manifest")
+}
+
+wait_for_uploads() {
+  local status=0
+  local pid
+  for pid in "$@"; do
+    wait "$pid" || status=1
+  done
+  return "$status"
+}
+
+# Publish project documents, then channel roots, then the service root.
+for stage in 3 2 1; do
+  pids=()
+  while IFS=$'\t' read -r _stage key source content_type; do
+    upload_document "$key" "$source" "$content_type" &
+    pids+=("$!")
+    if (( ${#pids[@]} >= upload_concurrency )); then
+      wait_for_uploads "${pids[@]}"
+      pids=()
+    fi
+  done < <(LC_ALL=C sort -t $'\t' -k2,2 "$manifest" | awk -F '\t' -v stage="$stage" '$1 == stage')
+  wait_for_uploads "${pids[@]}"
+done
 
 "$aws_cli" s3api list-objects-v2 \
   --endpoint-url "$R2_ENDPOINT" \
