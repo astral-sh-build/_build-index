@@ -42,9 +42,11 @@ description = "CUDA 13.0 builds"
 # Temporarily limit publication to small producers while R2 artifact mirroring
 # is rolled out incrementally. Restore the remaining repository blocks after
 # the mirroring path is proven at increasing scale.
-# [[repository]]
-# repository = "astral-sh-build/build-adan"
-# projects = ["adan"]
+# Active R2 artifact-mirroring trial producers, selected from the smallest
+# current catalogs so the complete mirror path can be exercised cheaply.
+[[repository]]
+repository = "astral-sh-build/build-adan"
+projects = ["adan"]
 
 # [[repository]]
 # repository = "astral-sh-build/build-apex"
@@ -70,8 +72,6 @@ description = "CUDA 13.0 builds"
 # repository = "astral-sh-build/build-detectron2"
 # projects = ["detectron2"]
 
-# Active R2 artifact-mirroring trial producers, selected from the smallest
-# current catalogs so the complete mirror path can be exercised cheaply.
 [[repository]]
 repository = "astral-sh-build/build-ffmpeg"
 projects = ["ffmpeg"]
