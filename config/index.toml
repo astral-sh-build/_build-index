@@ -60,9 +60,9 @@ projects = ["adan"]
 # repository = "astral-sh-build/build-deepep"
 # projects = ["deep-ep"]
 
-# [[repository]]
-# repository = "astral-sh-build/build-deepgemm"
-# projects = ["deep-gemm"]
+[[repository]]
+repository = "astral-sh-build/build-deepgemm"
+projects = ["deep-gemm"]
 
 # [[repository]]
 # repository = "astral-sh-build/build-deepspeed"
