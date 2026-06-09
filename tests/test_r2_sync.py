@@ -30,8 +30,11 @@ def test_sync_r2_uses_canonical_keys_and_deletes_stale_objects(
 import json
 import os
 import sys
+import time
 
 arguments = sys.argv[1:]
+if arguments[:2] == ["s3api", "put-object"]:
+    time.sleep(0.02)
 with open(os.environ["AWS_LOG"], "a", encoding="utf-8") as output:
     output.write(json.dumps(arguments) + "\\n")
 if arguments[:2] == ["s3api", "list-objects-v2"]:
@@ -48,6 +51,7 @@ else:
         "AWS_LOG": str(log),
         "R2_BUCKET": "index",
         "R2_ENDPOINT": "https://example.r2.cloudflarestorage.com",
+        "R2_UPLOAD_CONCURRENCY": "2",
     }
     subprocess.run(
         [ROOT / "scripts" / "sync_r2.sh", output],
@@ -62,13 +66,30 @@ else:
     deletes = [call for call in calls if call[:2] == ["s3api", "delete-object"]]
     listing = next(call for call in calls if call[:2] == ["s3api", "list-objects-v2"])
 
-    assert [_argument(call, "--key") for call in puts] == [
+    assert {_argument(call, "--key") for call in puts} == {
         "simple/v1+html/cu128/vllm/",
         "simple/v1+json/cu128/vllm/",
         "simple/cu128/vllm/",
         "simple/cu128/",
         "simple/",
+    }
+    call_indexes = {id(call): index for index, call in enumerate(calls)}
+    project_indexes = [
+        call_indexes[id(call)]
+        for call in puts
+        if _argument(call, "--key")
+        in {
+            "simple/v1+html/cu128/vllm/",
+            "simple/v1+json/cu128/vllm/",
+            "simple/cu128/vllm/",
+        }
     ]
+    root_indexes = [
+        call_indexes[id(call)]
+        for call in puts
+        if _argument(call, "--key") in {"simple/cu128/", "simple/"}
+    ]
+    assert max(project_indexes) < min(root_indexes)
     assert {_argument(call, "--content-type") for call in puts} == {
         "application/vnd.pypi.simple.v1+html",
         "application/vnd.pypi.simple.v1+json",
