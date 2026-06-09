@@ -208,25 +208,25 @@ def mirror_artifacts(
         collection.artifacts,
     )
 
-    with tempfile.TemporaryDirectory(prefix="build-index-mirror-") as temporary:
-        directory = Path(temporary)
-        total = len(collection.artifacts)
-        for index, (artifact, repository, existing) in enumerate(
-            zip(
-                collection.artifacts,
-                repositories,
-                existing_metadata,
-                strict=True,
-            )
-        ):
-            key = artifact_key(artifact)
-            published_url = artifact_url(base_url, key)
-            logger(f"checking artifact {index + 1}/{total}: {artifact.filename}")
-            if existing is not None:
-                metadata_sha256, requires_python = existing
-                logger(f"already mirrored: {artifact.filename}")
-            else:
-                wheel = directory / f"{index}.whl"
+    total = len(collection.artifacts)
+    for index, (artifact, repository, existing) in enumerate(
+        zip(
+            collection.artifacts,
+            repositories,
+            existing_metadata,
+            strict=True,
+        )
+    ):
+        key = artifact_key(artifact)
+        published_url = artifact_url(base_url, key)
+        logger(f"checking artifact {index + 1}/{total}: {artifact.filename}")
+        if existing is not None:
+            metadata_sha256, requires_python = existing
+            logger(f"already mirrored: {artifact.filename}")
+        else:
+            with tempfile.TemporaryDirectory(prefix="build-index-mirror-") as temporary:
+                directory = Path(temporary)
+                wheel = directory / "artifact.whl"
                 logger(f"downloading source artifact: {artifact.filename}")
                 sha256, size = downloader.download_asset(
                     artifact.download_url,
@@ -247,7 +247,7 @@ def mirror_artifacts(
                     )
 
                 core_metadata = extract_core_metadata(wheel, artifact)
-                metadata_path = directory / f"{index}.metadata"
+                metadata_path = directory / "artifact.metadata"
                 metadata_path.write_bytes(core_metadata.contents)
 
                 store.put(
@@ -274,16 +274,16 @@ def mirror_artifacts(
                 )
                 metadata_sha256 = core_metadata.sha256
                 requires_python = core_metadata.requires_python
-                logger(f"mirrored artifact and metadata: {artifact.filename}")
+            logger(f"mirrored artifact and metadata: {artifact.filename}")
 
-            mirrored.append(
-                replace(
-                    artifact,
-                    published_url=published_url,
-                    metadata_sha256=metadata_sha256,
-                    requires_python=requires_python,
-                )
+        mirrored.append(
+            replace(
+                artifact,
+                published_url=published_url,
+                metadata_sha256=metadata_sha256,
+                requires_python=requires_python,
             )
+        )
 
     return collection_from_artifacts(mirrored)
 
