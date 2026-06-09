@@ -42,8 +42,19 @@ def test_active_config_matches_validated_producer_inventory() -> None:
         ),
         ("astral-sh-build/build-pycuda", ("pycuda",)),
         ("astral-sh-build/build-sageattention3", ("sageattn3",)),
+        ("astral-sh-build/build-vllm", ("vllm",)),
+        ("vllm-project/vllm", ("vllm",)),
     ]
     assert all(repository.channels is None for repository in config.repositories)
+    upstream = config.repositories[-1]
+    assert upstream.access == "public"
+    assert str(upstream.minimum_release_version) == "0.9.1"
+    assert upstream.ignored_channels == ("cpu",)
+    assert tuple(rule.channel for rule in upstream.unlabeled_channel_rules) == (
+        "cu128",
+        "cu129",
+        "cu130",
+    )
 
 
 def test_active_config_is_limited_to_r2_mirroring_trial() -> None:
@@ -51,7 +62,7 @@ def test_active_config_is_limited_to_r2_mirroring_trial() -> None:
 
     assert {channel.name for channel in config.channels} >= {"cpu", "cu128"}
     assert all(channel.name != "pypi" for channel in config.channels)
-    assert len(config.repositories) == 12
+    assert len(config.repositories) == 14
     assert {repository.repository for repository in config.repositories} == {
         "astral-sh-build/build-adan",
         "astral-sh-build/build-deepep",
@@ -65,6 +76,8 @@ def test_active_config_is_limited_to_r2_mirroring_trial() -> None:
         "astral-sh-build/build-opencv",
         "astral-sh-build/build-pycuda",
         "astral-sh-build/build-sageattention3",
+        "astral-sh-build/build-vllm",
+        "vllm-project/vllm",
     }
 
 
@@ -145,7 +158,7 @@ def test_repository_policy_defaults_to_private_opaque_tags() -> None:
         if repository.access == "private"
     )
 
-    assert len(private) == 12
+    assert len(private) == 13
     assert all(repository.tag_regex == "^(?P<version>.+)$" for repository in private)
     assert all(repository.has_version_policy is False for repository in private)
     assert all(repository.allow_prereleases is False for repository in private)
@@ -295,16 +308,7 @@ ignored_channels = ["cuda12.8"]
 
 def test_private_repository_scope_excludes_public_sources() -> None:
     config = load_config(CONFIG)
-    private = config.repositories
-    public = replace(
-        private[0],
-        repository="vllm-project/vllm",
-        access="public",
-    )
-
-    owner, repositories = private_repository_scope(
-        replace(config, repositories=(*private, public))
-    )
+    owner, repositories = private_repository_scope(config)
 
     assert owner == "astral-sh-build"
     assert repositories == (
@@ -320,8 +324,8 @@ def test_private_repository_scope_excludes_public_sources() -> None:
         "build-opencv",
         "build-pycuda",
         "build-sageattention3",
+        "build-vllm",
     )
-    assert "vllm" not in repositories
 
 
 def test_private_repository_scope_allows_public_only_config() -> None:
