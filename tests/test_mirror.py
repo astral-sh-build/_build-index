@@ -45,6 +45,32 @@ class FakeDownloader:
         return hashlib.sha256(contents).hexdigest(), len(contents)
 
 
+class CleanupCheckingDownloader(FakeDownloader):
+    def __init__(self, source: Path) -> None:
+        super().__init__(source)
+        self.previous_directory: Path | None = None
+
+    def download_asset(
+        self,
+        asset_api_url: str,
+        destination: Path,
+        *,
+        repository: str | None = None,
+        access: str = "private",
+        log=None,
+    ) -> tuple[str, int]:
+        if self.previous_directory is not None:
+            assert not self.previous_directory.exists()
+        self.previous_directory = destination.parent
+        return super().download_asset(
+            asset_api_url,
+            destination,
+            repository=repository,
+            access=access,
+            log=log,
+        )
+
+
 class FakeStore:
     def __init__(self) -> None:
         self.objects: dict[str, tuple[bytes, dict[str, str], str]] = {}
@@ -305,6 +331,39 @@ def test_mirror_finishes_parallel_preflight_before_writes(tmp_path: Path) -> Non
 
     assert downloader.calls == 0
     assert store.puts == []
+
+
+def test_mirror_cleans_up_each_download_before_starting_the_next(
+    tmp_path: Path,
+) -> None:
+    wheel = tmp_path / FILENAME
+    base = make_wheel(
+        wheel,
+        b"Metadata-Version: 2.4\nName: grouped-gemm\nVersion: 0.1.0\n\n",
+    )
+    artifacts = (
+        base,
+        replace(
+            base,
+            filename="grouped_gemm-0.1.0+cu129-py3-none-any.whl",
+            version="0.1.0+cu129",
+            channel="cu129",
+            download_url="https://api.github.com/releases/assets/2",
+        ),
+    )
+    downloader = CleanupCheckingDownloader(wheel)
+
+    mirror_artifacts(
+        CONFIG,
+        collection_from_artifacts(artifacts),
+        downloader,
+        FakeStore(),
+        public_base_url="https://packages.example",
+    )
+
+    assert downloader.calls == 2
+    assert downloader.previous_directory is not None
+    assert not downloader.previous_directory.exists()
 
 
 def test_mirror_rejects_wheel_with_wrong_digest(tmp_path: Path) -> None:
