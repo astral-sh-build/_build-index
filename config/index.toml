@@ -39,9 +39,9 @@ description = "CUDA 13.0 builds"
 
 # Repository entries admit a producer and its projects. Channels are inferred
 # from each wheel and checked against the global channel list above.
-# Temporarily limit publication to the smallest producer while R2 artifact
-# mirroring is implemented and exercised end to end. Restore the commented
-# repository blocks after the mirroring path is proven resumable.
+# Temporarily limit publication to small producers while R2 artifact mirroring
+# is rolled out incrementally. Restore the remaining repository blocks after
+# the mirroring path is proven at increasing scale.
 # [[repository]]
 # repository = "astral-sh-build/build-adan"
 # projects = ["adan"]
@@ -82,8 +82,8 @@ description = "CUDA 13.0 builds"
 # repository = "astral-sh-build/build-flash-attention-3"
 # projects = ["flash-attn-3"]
 
-# Active R2 artifact-mirroring trial producer, selected as the smallest current
-# catalog so the complete mirror path can be exercised cheaply.
+# Active R2 artifact-mirroring trial producers, selected from the smallest
+# current catalogs so the complete mirror path can be exercised cheaply.
 [[repository]]
 repository = "astral-sh-build/build-grouped-gemm"
 projects = ["grouped-gemm"]
@@ -92,9 +92,9 @@ projects = ["grouped-gemm"]
 # repository = "astral-sh-build/build-mamba"
 # projects = ["mamba-ssm"]
 
-# [[repository]]
-# repository = "astral-sh-build/build-megablocks"
-# projects = ["megablocks"]
+[[repository]]
+repository = "astral-sh-build/build-megablocks"
+projects = ["megablocks"]
 
 # [[repository]]
 # repository = "astral-sh-build/build-mmcv"

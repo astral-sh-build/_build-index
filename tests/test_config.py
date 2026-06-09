@@ -28,6 +28,7 @@ def test_active_config_matches_validated_producer_inventory() -> None:
         for repository in config.repositories
     ] == [
         ("astral-sh-build/build-grouped-gemm", ("grouped-gemm",)),
+        ("astral-sh-build/build-megablocks", ("megablocks",)),
     ]
     assert all(repository.channels is None for repository in config.repositories)
 
@@ -37,9 +38,11 @@ def test_active_config_is_limited_to_r2_mirroring_trial() -> None:
 
     assert {channel.name for channel in config.channels} >= {"cpu", "cu128"}
     assert all(channel.name != "pypi" for channel in config.channels)
-    assert len(config.repositories) == 1
-    assert config.repositories[0].repository == "astral-sh-build/build-grouped-gemm"
-    assert config.repositories[0].projects == ("grouped-gemm",)
+    assert len(config.repositories) == 2
+    assert {repository.repository for repository in config.repositories} == {
+        "astral-sh-build/build-grouped-gemm",
+        "astral-sh-build/build-megablocks",
+    }
 
 
 def test_config_rejects_noncanonical_channel_name(tmp_path: Path) -> None:
@@ -119,7 +122,7 @@ def test_repository_policy_defaults_to_private_opaque_tags() -> None:
         if repository.access == "private"
     )
 
-    assert len(private) == 1
+    assert len(private) == 2
     assert all(repository.tag_regex == "^(?P<version>.+)$" for repository in private)
     assert all(repository.has_version_policy is False for repository in private)
     assert all(repository.allow_prereleases is False for repository in private)
@@ -269,19 +272,19 @@ ignored_channels = ["cuda12.8"]
 
 def test_private_repository_scope_excludes_public_sources() -> None:
     config = load_config(CONFIG)
-    private = config.repositories[0]
+    private = config.repositories
     public = replace(
-        private,
+        private[0],
         repository="vllm-project/vllm",
         access="public",
     )
 
     owner, repositories = private_repository_scope(
-        replace(config, repositories=(private, public))
+        replace(config, repositories=(*private, public))
     )
 
     assert owner == "astral-sh-build"
-    assert repositories == ("build-grouped-gemm",)
+    assert repositories == ("build-grouped-gemm", "build-megablocks")
     assert "vllm" not in repositories
 
 
