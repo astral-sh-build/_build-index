@@ -80,9 +80,9 @@ projects = ["ffmpeg"]
 # repository = "astral-sh-build/build-flash-attention"
 # projects = ["flash-attn"]
 
-# [[repository]]
-# repository = "astral-sh-build/build-flash-attention-3"
-# projects = ["flash-attn-3"]
+[[repository]]
+repository = "astral-sh-build/build-flash-attention-3"
+projects = ["flash-attn-3"]
 
 [[repository]]
 repository = "astral-sh-build/build-grouped-gemm"
