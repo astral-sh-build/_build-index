@@ -100,9 +100,9 @@ projects = ["megablocks"]
 # repository = "astral-sh-build/build-mmcv"
 # projects = ["mmcv"]
 
-# [[repository]]
-# repository = "astral-sh-build/build-nvmolkit"
-# projects = ["nvmolkit"]
+[[repository]]
+repository = "astral-sh-build/build-nvmolkit"
+projects = ["nvmolkit"]
 
 # [[repository]]
 # repository = "astral-sh-build/build-opencv"
