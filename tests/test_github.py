@@ -13,7 +13,7 @@ from packaging.version import Version
 
 from build_index import github as github_module
 from build_index.collection import CollectionError
-from build_index.config import load_config
+from build_index.config import RepositoryConfig, UnlabeledChannelRule, load_config
 from build_index.github import (
     GitHubClient,
     GitHubError,
@@ -92,10 +92,19 @@ def release(
 
 
 def upstream_vllm_config():
-    repository = next(
-        repository
-        for repository in PRODUCTION_CONFIG.repositories
-        if repository.repository == "vllm-project/vllm"
+    repository = RepositoryConfig(
+        repository="vllm-project/vllm",
+        projects=("vllm",),
+        access="public",
+        tag_regex=r"^v(?P<version>.+)$",
+        minimum_release_version=Version("0.9.1"),
+        ignored_channels=("cpu",),
+        unlabeled_channel_rules=(
+            UnlabeledChannelRule(Version("0.9.1"), Version("0.12.0"), "cu128"),
+            UnlabeledChannelRule(Version("0.12.0"), Version("0.20.0"), "cu129"),
+            UnlabeledChannelRule(Version("0.20.0"), Version("0.23.0"), "cu130"),
+        ),
+        has_version_policy=True,
     )
     return replace(PRODUCTION_CONFIG, repositories=(repository,))
 
