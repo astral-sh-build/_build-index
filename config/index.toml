@@ -58,7 +58,7 @@ projects = ["causal-conv1d"]
 # Backfill newest-to-oldest to keep each mirror run within the GitHub App
 # token lifetime. Lower through 1.6.1.post4, 1.6.0, then 1.5.4.
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
-minimum_release_version = "1.6.1.post4"
+minimum_release_version = "1.6.0"
 
 [[repository]]
 repository = "astral-sh-build/build-deepep"
