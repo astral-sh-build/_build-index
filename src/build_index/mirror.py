@@ -12,11 +12,9 @@ from email import policy
 from email.message import Message
 from email.parser import BytesParser
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 from urllib.parse import quote, urlparse
 
-from boto3.session import Session
-from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
@@ -30,6 +28,7 @@ from build_index.collection import (
     parse_collected_wheel_filename,
 )
 from build_index.config import IndexConfig
+from build_index.r2 import S3Client, create_s3_client
 
 _ARTIFACT_CACHE_CONTROL = "public, max-age=31536000, immutable"
 _MAX_HEAD_WORKERS = 16
@@ -79,12 +78,6 @@ class ObjectStore(Protocol):
     ) -> None: ...
 
 
-class S3Client(Protocol):
-    def head_object(self, **kwargs: object) -> dict[str, Any]: ...
-
-    def put_object(self, **kwargs: object) -> dict[str, Any]: ...
-
-
 class S3ObjectStore:
     """Small pooled S3 client for an R2 bucket."""
 
@@ -97,25 +90,15 @@ class S3ObjectStore:
     ) -> None:
         if not bucket:
             raise MirrorError("R2 bucket must not be empty")
-        parsed = urlparse(endpoint)
-        if parsed.scheme != "https" or not parsed.netloc:
-            raise MirrorError("R2 endpoint must be an HTTPS URL")
         self.bucket = bucket
         self.endpoint = endpoint.rstrip("/")
-        self.client = client or Session().client(
-            "s3",
-            endpoint_url=self.endpoint,
-            region_name="auto",
-            config=Config(
+        try:
+            self.client = client or create_s3_client(
+                self.endpoint,
                 max_pool_connections=_MAX_HEAD_WORKERS,
-                request_checksum_calculation="when_required",
-                response_checksum_validation="when_required",
-                retries={"mode": "standard", "total_max_attempts": 4},
-                s3={"addressing_style": "path"},
-                signature_version="s3v4",
-                tcp_keepalive=True,
-            ),
-        )
+            )
+        except ValueError as error:
+            raise MirrorError(str(error)) from error
 
     def head(self, key: str) -> ObjectInfo | None:
         try:
