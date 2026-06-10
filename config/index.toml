@@ -74,7 +74,7 @@ projects = ["deepspeed"]
 # Backfill newest-to-oldest to keep each mirror run within the GitHub App
 # token lifetime. Lower this floor one reviewed release at a time.
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
-minimum_release_version = "0.18.9"
+minimum_release_version = "0.18.8"
 
 [[repository]]
 repository = "astral-sh-build/build-detectron2"
