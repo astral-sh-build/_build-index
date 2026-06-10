@@ -52,9 +52,9 @@ projects = ["adan"]
 repository = "astral-sh-build/build-apex"
 projects = ["apex"]
 
-# [[repository]]
-# repository = "astral-sh-build/build-causal-conv1d"
-# projects = ["causal-conv1d"]
+[[repository]]
+repository = "astral-sh-build/build-causal-conv1d"
+projects = ["causal-conv1d"]
 
 [[repository]]
 repository = "astral-sh-build/build-deepep"
