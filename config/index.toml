@@ -120,9 +120,9 @@ projects = ["pycuda"]
 repository = "astral-sh-build/build-pytorch-scatter"
 projects = ["torch-scatter"]
 
-# [[repository]]
-# repository = "astral-sh-build/build-pytorch3d"
-# projects = ["pytorch3d"]
+[[repository]]
+repository = "astral-sh-build/build-pytorch3d"
+projects = ["pytorch3d"]
 
 [[repository]]
 repository = "astral-sh-build/build-sageattention"
