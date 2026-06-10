@@ -112,9 +112,9 @@ projects = ["opencv-contrib-python-headless", "opencv-python-headless"]
 repository = "astral-sh-build/build-pycuda"
 projects = ["pycuda"]
 
-# [[repository]]
-# repository = "astral-sh-build/build-pytorch-scatter"
-# projects = ["torch-scatter"]
+[[repository]]
+repository = "astral-sh-build/build-pytorch-scatter"
+projects = ["torch-scatter"]
 
 # [[repository]]
 # repository = "astral-sh-build/build-pytorch3d"
