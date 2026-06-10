@@ -1,4 +1,5 @@
-name: Update package indexes
+name: Publish package indexes to R2
+run-name: Publish package indexes to R2
 
 on:
   push:
