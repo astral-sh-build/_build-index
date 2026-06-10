@@ -80,9 +80,9 @@ projects = ["detectron2"]
 repository = "astral-sh-build/build-ffmpeg"
 projects = ["ffmpeg"]
 
-# [[repository]]
-# repository = "astral-sh-build/build-flash-attention"
-# projects = ["flash-attn"]
+[[repository]]
+repository = "astral-sh-build/build-flash-attention"
+projects = ["flash-attn"]
 
 [[repository]]
 repository = "astral-sh-build/build-flash-attention-3"

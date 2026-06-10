@@ -15,6 +15,7 @@ EXPECTED_REPOSITORIES = (
     ("astral-sh-build/build-deepgemm", ("deep-gemm",)),
     ("astral-sh-build/build-detectron2", ("detectron2",)),
     ("astral-sh-build/build-ffmpeg", ("ffmpeg",)),
+    ("astral-sh-build/build-flash-attention", ("flash-attn",)),
     ("astral-sh-build/build-flash-attention-3", ("flash-attn-3",)),
     ("astral-sh-build/build-grouped-gemm", ("grouped-gemm",)),
     ("astral-sh-build/build-megablocks", ("megablocks",)),
