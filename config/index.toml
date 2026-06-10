@@ -48,9 +48,9 @@ description = "CUDA 13.0 builds"
 repository = "astral-sh-build/build-adan"
 projects = ["adan"]
 
-# [[repository]]
-# repository = "astral-sh-build/build-apex"
-# projects = ["apex"]
+[[repository]]
+repository = "astral-sh-build/build-apex"
+projects = ["apex"]
 
 # [[repository]]
 # repository = "astral-sh-build/build-causal-conv1d"
