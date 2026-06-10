@@ -7,6 +7,34 @@ from build_index.config import ConfigError, load_config, private_repository_scop
 
 ROOT = Path(__file__).parents[1]
 CONFIG = ROOT / "config" / "index.toml"
+EXPECTED_REPOSITORIES = (
+    ("astral-sh-build/build-adan", ("adan",)),
+    ("astral-sh-build/build-apex", ("apex",)),
+    ("astral-sh-build/build-causal-conv1d", ("causal-conv1d",)),
+    ("astral-sh-build/build-deepep", ("deep-ep",)),
+    ("astral-sh-build/build-deepgemm", ("deep-gemm",)),
+    ("astral-sh-build/build-detectron2", ("detectron2",)),
+    ("astral-sh-build/build-ffmpeg", ("ffmpeg",)),
+    ("astral-sh-build/build-flash-attention-3", ("flash-attn-3",)),
+    ("astral-sh-build/build-grouped-gemm", ("grouped-gemm",)),
+    ("astral-sh-build/build-megablocks", ("megablocks",)),
+    ("astral-sh-build/build-mmcv", ("mmcv",)),
+    ("astral-sh-build/build-nvmolkit", ("nvmolkit",)),
+    (
+        "astral-sh-build/build-opencv",
+        ("opencv-contrib-python-headless", "opencv-python-headless"),
+    ),
+    ("astral-sh-build/build-pycuda", ("pycuda",)),
+    ("astral-sh-build/build-pytorch-scatter", ("torch-scatter",)),
+    ("astral-sh-build/build-sageattention", ("sageattention",)),
+    ("astral-sh-build/build-sageattention3", ("sageattn3",)),
+    (
+        "astral-sh-build/build-transformer-engine-torch",
+        ("transformer-engine-torch",),
+    ),
+    ("astral-sh-build/build-vllm", ("vllm",)),
+    ("vllm-project/vllm", ("vllm",)),
+)
 
 
 def test_active_config_matches_validated_producer_inventory() -> None:
@@ -26,28 +54,7 @@ def test_active_config_matches_validated_producer_inventory() -> None:
     assert [
         (repository.repository, repository.projects)
         for repository in config.repositories
-    ] == [
-        ("astral-sh-build/build-adan", ("adan",)),
-        ("astral-sh-build/build-deepep", ("deep-ep",)),
-        ("astral-sh-build/build-deepgemm", ("deep-gemm",)),
-        ("astral-sh-build/build-detectron2", ("detectron2",)),
-        ("astral-sh-build/build-ffmpeg", ("ffmpeg",)),
-        ("astral-sh-build/build-flash-attention-3", ("flash-attn-3",)),
-        ("astral-sh-build/build-grouped-gemm", ("grouped-gemm",)),
-        ("astral-sh-build/build-megablocks", ("megablocks",)),
-        ("astral-sh-build/build-mmcv", ("mmcv",)),
-        ("astral-sh-build/build-nvmolkit", ("nvmolkit",)),
-        (
-            "astral-sh-build/build-opencv",
-            ("opencv-contrib-python-headless", "opencv-python-headless"),
-        ),
-        ("astral-sh-build/build-pycuda", ("pycuda",)),
-        ("astral-sh-build/build-pytorch-scatter", ("torch-scatter",)),
-        ("astral-sh-build/build-sageattention", ("sageattention",)),
-        ("astral-sh-build/build-sageattention3", ("sageattn3",)),
-        ("astral-sh-build/build-vllm", ("vllm",)),
-        ("vllm-project/vllm", ("vllm",)),
-    ]
+    ] == list(EXPECTED_REPOSITORIES)
     assert all(repository.channels is None for repository in config.repositories)
     upstream = config.repositories[-1]
     assert upstream.access == "public"
@@ -65,25 +72,9 @@ def test_active_config_is_limited_to_r2_mirroring_trial() -> None:
 
     assert {channel.name for channel in config.channels} >= {"cpu", "cu128"}
     assert all(channel.name != "pypi" for channel in config.channels)
-    assert len(config.repositories) == 17
+    assert len(config.repositories) == len(EXPECTED_REPOSITORIES)
     assert {repository.repository for repository in config.repositories} == {
-        "astral-sh-build/build-adan",
-        "astral-sh-build/build-deepep",
-        "astral-sh-build/build-deepgemm",
-        "astral-sh-build/build-detectron2",
-        "astral-sh-build/build-ffmpeg",
-        "astral-sh-build/build-flash-attention-3",
-        "astral-sh-build/build-grouped-gemm",
-        "astral-sh-build/build-megablocks",
-        "astral-sh-build/build-mmcv",
-        "astral-sh-build/build-nvmolkit",
-        "astral-sh-build/build-opencv",
-        "astral-sh-build/build-pycuda",
-        "astral-sh-build/build-pytorch-scatter",
-        "astral-sh-build/build-sageattention",
-        "astral-sh-build/build-sageattention3",
-        "astral-sh-build/build-vllm",
-        "vllm-project/vllm",
+        repository for repository, _projects in EXPECTED_REPOSITORIES
     }
 
 
@@ -158,16 +149,25 @@ projects = ["Example_Package"]
 
 def test_repository_policy_defaults_to_private_opaque_tags() -> None:
     config = load_config(CONFIG)
-    private = tuple(
+    opaque_private = tuple(
         repository
         for repository in config.repositories
-        if repository.access == "private"
+        if repository.access == "private" and not repository.has_version_policy
     )
 
-    assert len(private) == 16
-    assert all(repository.tag_regex == "^(?P<version>.+)$" for repository in private)
-    assert all(repository.has_version_policy is False for repository in private)
-    assert all(repository.allow_prereleases is False for repository in private)
+    assert all(
+        repository.tag_regex == "^(?P<version>.+)$" for repository in opaque_private
+    )
+    assert all(repository.allow_prereleases is False for repository in opaque_private)
+
+    versioned_private = tuple(
+        repository
+        for repository in config.repositories
+        if repository.access == "private" and repository.has_version_policy
+    )
+    assert tuple(repository.repository for repository in versioned_private) == (
+        "astral-sh-build/build-causal-conv1d",
+    )
 
 
 @pytest.mark.parametrize(
@@ -317,23 +317,10 @@ def test_private_repository_scope_excludes_public_sources() -> None:
     owner, repositories = private_repository_scope(config)
 
     assert owner == "astral-sh-build"
-    assert repositories == (
-        "build-adan",
-        "build-deepep",
-        "build-deepgemm",
-        "build-detectron2",
-        "build-ffmpeg",
-        "build-flash-attention-3",
-        "build-grouped-gemm",
-        "build-megablocks",
-        "build-mmcv",
-        "build-nvmolkit",
-        "build-opencv",
-        "build-pycuda",
-        "build-pytorch-scatter",
-        "build-sageattention",
-        "build-sageattention3",
-        "build-vllm",
+    assert repositories == tuple(
+        repository.removeprefix("astral-sh-build/")
+        for repository, _projects in EXPECTED_REPOSITORIES
+        if repository.startswith("astral-sh-build/")
     )
 
 
