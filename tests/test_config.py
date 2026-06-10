@@ -26,6 +26,7 @@ EXPECTED_REPOSITORIES = (
     ),
     ("astral-sh-build/build-pycuda", ("pycuda",)),
     ("astral-sh-build/build-pytorch-scatter", ("torch-scatter",)),
+    ("astral-sh-build/build-pytorch3d", ("pytorch3d",)),
     ("astral-sh-build/build-sageattention", ("sageattention",)),
     ("astral-sh-build/build-sageattention3", ("sageattn3",)),
     (
