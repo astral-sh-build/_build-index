@@ -13,6 +13,7 @@ EXPECTED_REPOSITORIES = (
     ("astral-sh-build/build-causal-conv1d", ("causal-conv1d",)),
     ("astral-sh-build/build-deepep", ("deep-ep",)),
     ("astral-sh-build/build-deepgemm", ("deep-gemm",)),
+    ("astral-sh-build/build-deepspeed", ("deepspeed",)),
     ("astral-sh-build/build-detectron2", ("detectron2",)),
     ("astral-sh-build/build-ffmpeg", ("ffmpeg",)),
     ("astral-sh-build/build-flash-attention", ("flash-attn",)),
@@ -169,6 +170,7 @@ def test_repository_policy_defaults_to_private_opaque_tags() -> None:
     )
     assert tuple(repository.repository for repository in versioned_private) == (
         "astral-sh-build/build-causal-conv1d",
+        "astral-sh-build/build-deepspeed",
     )
 
 
