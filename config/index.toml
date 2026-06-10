@@ -132,9 +132,9 @@ projects = ["sageattention"]
 repository = "astral-sh-build/build-sageattention3"
 projects = ["sageattn3"]
 
-# [[repository]]
-# repository = "astral-sh-build/build-transformer-engine-torch"
-# projects = ["transformer-engine-torch"]
+[[repository]]
+repository = "astral-sh-build/build-transformer-engine-torch"
+projects = ["transformer-engine-torch"]
 
 # Keep the two vLLM sources together. Astral builds remain authoritative for
 # CPU wheels; upstream CPU wheels are ignored below to avoid duplicate sources.
