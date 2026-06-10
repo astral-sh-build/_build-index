@@ -35,6 +35,7 @@ def test_active_config_matches_validated_producer_inventory() -> None:
         ("astral-sh-build/build-flash-attention-3", ("flash-attn-3",)),
         ("astral-sh-build/build-grouped-gemm", ("grouped-gemm",)),
         ("astral-sh-build/build-megablocks", ("megablocks",)),
+        ("astral-sh-build/build-mmcv", ("mmcv",)),
         ("astral-sh-build/build-nvmolkit", ("nvmolkit",)),
         (
             "astral-sh-build/build-opencv",
@@ -64,7 +65,7 @@ def test_active_config_is_limited_to_r2_mirroring_trial() -> None:
 
     assert {channel.name for channel in config.channels} >= {"cpu", "cu128"}
     assert all(channel.name != "pypi" for channel in config.channels)
-    assert len(config.repositories) == 16
+    assert len(config.repositories) == 17
     assert {repository.repository for repository in config.repositories} == {
         "astral-sh-build/build-adan",
         "astral-sh-build/build-deepep",
@@ -74,6 +75,7 @@ def test_active_config_is_limited_to_r2_mirroring_trial() -> None:
         "astral-sh-build/build-flash-attention-3",
         "astral-sh-build/build-grouped-gemm",
         "astral-sh-build/build-megablocks",
+        "astral-sh-build/build-mmcv",
         "astral-sh-build/build-nvmolkit",
         "astral-sh-build/build-opencv",
         "astral-sh-build/build-pycuda",
@@ -162,7 +164,7 @@ def test_repository_policy_defaults_to_private_opaque_tags() -> None:
         if repository.access == "private"
     )
 
-    assert len(private) == 15
+    assert len(private) == 16
     assert all(repository.tag_regex == "^(?P<version>.+)$" for repository in private)
     assert all(repository.has_version_policy is False for repository in private)
     assert all(repository.allow_prereleases is False for repository in private)
@@ -324,6 +326,7 @@ def test_private_repository_scope_excludes_public_sources() -> None:
         "build-flash-attention-3",
         "build-grouped-gemm",
         "build-megablocks",
+        "build-mmcv",
         "build-nvmolkit",
         "build-opencv",
         "build-pycuda",

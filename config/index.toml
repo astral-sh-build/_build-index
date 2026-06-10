@@ -96,9 +96,9 @@ projects = ["grouped-gemm"]
 repository = "astral-sh-build/build-megablocks"
 projects = ["megablocks"]
 
-# [[repository]]
-# repository = "astral-sh-build/build-mmcv"
-# projects = ["mmcv"]
+[[repository]]
+repository = "astral-sh-build/build-mmcv"
+projects = ["mmcv"]
 
 [[repository]]
 repository = "astral-sh-build/build-nvmolkit"
