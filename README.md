@@ -57,6 +57,7 @@ export GH_TOKEN="$(gh auth token)"
 uv run --locked build-index collect
 uv run --locked build-index mirror
 uv run --locked build-index build
+uv run --locked build-index sync-r2
 ```
 
 `collect` writes `build/releases.json`. `build` reads that file and replaces
@@ -174,7 +175,9 @@ This makes the default JSON and explicit JSON/HTML endpoints work directly
 through an R2 custom domain without Cloudflare URL rewrites. Project documents
 are uploaded before channel roots, and stale objects are deleted only after all
 new objects succeed. The document sync owns the complete `simple/` object
-prefix but never deletes `artifacts/` objects.
+prefix but never deletes `artifacts/` objects. It uses one pooled boto3 client
+with bounded concurrent uploads and batched stale-object deletion, avoiding a
+new CLI process and TLS connection for every document.
 
 See [PEP 658](https://peps.python.org/pep-0658/) and
 [PEP 714](https://peps.python.org/pep-0714/).

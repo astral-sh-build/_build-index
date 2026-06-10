@@ -11,6 +11,7 @@ from build_index.config import ConfigError, load_config, private_repository_scop
 from build_index.github import GitHubClient, collect_release_assets
 from build_index.mirror import S3ObjectStore, mirror_artifacts
 from build_index.pages import build_pages
+from build_index.r2_sync import sync_simple_documents
 
 DEFAULT_CONFIG = Path("config/index.toml")
 DEFAULT_COLLECTION = Path("build/releases.json")
@@ -90,6 +91,27 @@ def main() -> None:
     build_parser.add_argument(
         "--base-url",
         help="Override the configured public base URL.",
+    )
+    sync_parser = subparsers.add_parser(
+        "sync-r2",
+        help="Sync generated Simple API documents to R2.",
+    )
+    sync_parser.add_argument("--input", type=Path, default=Path("dist"))
+    sync_parser.add_argument(
+        "--bucket",
+        default=os.environ.get("R2_BUCKET"),
+        help="R2 bucket name.",
+    )
+    sync_parser.add_argument(
+        "--endpoint",
+        default=os.environ.get("R2_ENDPOINT"),
+        help="R2 S3 endpoint URL.",
+    )
+    sync_parser.add_argument(
+        "--upload-workers",
+        type=_positive_integer,
+        default=os.environ.get("R2_UPLOAD_CONCURRENCY", "16"),
+        help="Maximum concurrent document uploads.",
     )
 
     args = parser.parse_args()
@@ -183,5 +205,24 @@ def main() -> None:
                 f"{len(config.channels)} channels, "
                 f"{len(collection.artifacts)} wheel assets"
             )
+        elif args.command == "sync-r2":
+            if not args.bucket:
+                raise CollectionError("R2 bucket is not set")
+            if not args.endpoint:
+                raise CollectionError("R2 endpoint is not set")
+            sync_simple_documents(
+                args.input,
+                args.bucket,
+                args.endpoint,
+                upload_workers=args.upload_workers,
+                log=lambda message: print(message, flush=True),
+            )
     except (CollectionError, ConfigError, ValueError) as error:
         parser.error(str(error))
+
+
+def _positive_integer(value: str) -> int:
+    result = int(value)
+    if result < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return result
