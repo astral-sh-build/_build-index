@@ -76,10 +76,6 @@ repository = "astral-sh-build/build-detectron2"
 projects = ["detectron2"]
 
 [[repository]]
-repository = "astral-sh-build/build-ffmpeg"
-projects = ["ffmpeg"]
-
-[[repository]]
 repository = "astral-sh-build/build-flash-attention"
 projects = ["flash-attn"]
 
