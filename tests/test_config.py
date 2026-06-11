@@ -68,6 +68,14 @@ def test_active_config_matches_validated_producer_inventory() -> None:
         "cu129",
         "cu130",
     )
+    deepspeed = config.repository("astral-sh-build/build-deepspeed")
+    assert deepspeed is not None
+    assert deepspeed.allowed_metadata_version_mismatch_tags == (
+        "v0.18.1",
+        "v0.18.2",
+        "v0.18.3",
+        "v0.18.4-r1",
+    )
 
 
 def test_active_config_is_limited_to_r2_mirroring_trial() -> None:

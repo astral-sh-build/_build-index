@@ -53,6 +53,7 @@ class RepositoryConfig:
     minimum_release_version: Version | None = None
     allow_prereleases: bool = False
     ignored_channels: tuple[str, ...] = ()
+    allowed_metadata_version_mismatch_tags: tuple[str, ...] = ()
     unlabeled_channel_rules: tuple[UnlabeledChannelRule, ...] = ()
     has_version_policy: bool = False
 
@@ -150,6 +151,7 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
             "minimum_release_version",
             "allow_prereleases",
             "ignored_channels",
+            "allowed_metadata_version_mismatch_tags",
             "unlabeled_channel_rules",
         },
         context,
@@ -201,6 +203,21 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
     )
     _require_unique(ignored_channels, f"{context} ignored channel")
 
+    allowed_metadata_version_mismatch_tags = (
+        _string_tuple(data, "allowed_metadata_version_mismatch_tags", context)
+        if "allowed_metadata_version_mismatch_tags" in data
+        else ()
+    )
+    if any(not tag for tag in allowed_metadata_version_mismatch_tags):
+        raise ConfigError(
+            f"{context}.allowed_metadata_version_mismatch_tags must not contain "
+            "empty tags"
+        )
+    _require_unique(
+        allowed_metadata_version_mismatch_tags,
+        f"{context} allowed metadata version mismatch tag",
+    )
+
     unlabeled_channel_rules = _load_unlabeled_channel_rules(
         data.get("unlabeled_channel_rules", []),
         context,
@@ -222,6 +239,7 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
         minimum_release_version=minimum_release_version,
         allow_prereleases=allow_prereleases,
         ignored_channels=ignored_channels,
+        allowed_metadata_version_mismatch_tags=(allowed_metadata_version_mismatch_tags),
         unlabeled_channel_rules=unlabeled_channel_rules,
         has_version_policy=has_version_policy,
     )

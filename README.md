@@ -48,6 +48,10 @@ unless prereleases are explicitly allowed. Unlabeled channel rules require
 bounded, nonoverlapping `from` and `before` versions; an unlabeled wheel in a
 gap fails collection. Ignored channels are exclusions rather than publication
 channels, so they do not need to appear in the global channel list.
+Wheel metadata versions must match filename versions by default. A repository
+may explicitly allow mismatches for exact, reviewed release tags with
+`allowed_metadata_version_mismatch_tags`; the mirror logs every use and still
+preserves the original wheel and metadata bytes.
 
 ## Commands
 
