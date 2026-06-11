@@ -22,10 +22,11 @@ def artifact(**overrides: object) -> CollectedArtifact:
         "project": "index-test-gpu",
         "version": "0.1.0+cu128",
         "channel": "cu128",
-        "url": (
+        "source_url": (
             "https://github.com/example/build-index-test-gpu/releases/"
             "download/0.1.0/index_test_gpu-0.1.0%2Bcu128-py3-none-any.whl"
         ),
+        "download_url": "https://api.github.com/releases/assets/1",
         "sha256": "a" * 64,
         "size": 123,
         "upload_time": "2026-06-02T17:13:12Z",
@@ -41,10 +42,11 @@ def test_collection_round_trip_is_deterministic(tmp_path: Path) -> None:
         project="index-test-cpu",
         version="0.1.0+cpu",
         channel="cpu",
-        url=(
+        source_url=(
             "https://github.com/example/build-index-test-cpu/releases/"
             "download/0.1.0/index_test_cpu-0.1.0%2Bcpu-py3-none-any.whl"
         ),
+        download_url="https://api.github.com/releases/assets/2",
         sha256="b" * 64,
     )
     collection = collection_from_artifacts([artifact(), second])
@@ -99,8 +101,8 @@ def test_collection_rejects_invalid_hash() -> None:
 
 
 def test_collection_rejects_non_https_url() -> None:
-    with pytest.raises(CollectionError, match="invalid URL"):
-        collection_from_artifacts([artifact(url="http://example.com/wheel.whl")])
+    with pytest.raises(CollectionError, match="invalid source URL"):
+        collection_from_artifacts([artifact(source_url="http://example.com/wheel.whl")])
 
 
 @pytest.mark.parametrize(

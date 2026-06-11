@@ -7,7 +7,6 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
@@ -20,11 +19,6 @@ _REPOSITORY_ACCESS = frozenset({"private", "public"})
 
 class ConfigError(ValueError):
     """Raised when index configuration is invalid."""
-
-
-@dataclass(frozen=True)
-class SiteConfig:
-    base_url: str
 
 
 @dataclass(frozen=True)
@@ -53,13 +47,13 @@ class RepositoryConfig:
     minimum_release_version: Version | None = None
     allow_prereleases: bool = False
     ignored_channels: tuple[str, ...] = ()
+    allowed_metadata_version_mismatch_tags: tuple[str, ...] = ()
     unlabeled_channel_rules: tuple[UnlabeledChannelRule, ...] = ()
     has_version_policy: bool = False
 
 
 @dataclass(frozen=True)
 class IndexConfig:
-    site: SiteConfig
     channels: tuple[ChannelConfig, ...]
     repositories: tuple[RepositoryConfig, ...]
 
@@ -81,11 +75,10 @@ def load_config(path: Path) -> IndexConfig:
     except (OSError, tomllib.TOMLDecodeError) as error:
         raise ConfigError(f"could not load {path}: {error}") from error
 
-    _expect_keys(data, {"schema_version", "site", "channel", "repository"}, "root")
+    _expect_keys(data, {"schema_version", "channel", "repository"}, "root")
     if _required(data, "schema_version", int, "root") != 1:
         raise ConfigError("root.schema_version must be exactly 1")
 
-    site = _load_site(_required(data, "site", dict, "root"))
     channels = tuple(
         _load_channel(entry, index)
         for index, entry in enumerate(data.get("channel", []))
@@ -104,21 +97,9 @@ def load_config(path: Path) -> IndexConfig:
         _validate_repository_channels(repository, channel_names)
 
     return IndexConfig(
-        site=site,
         channels=channels,
         repositories=repositories,
     )
-
-
-def _load_site(data: dict[str, Any]) -> SiteConfig:
-    _expect_keys(data, {"base_url"}, "site")
-    base_url = _required(data, "base_url", str, "site").rstrip("/")
-    parsed = urlparse(base_url)
-    if parsed.scheme != "https" or not parsed.netloc or parsed.query or parsed.fragment:
-        raise ConfigError(
-            "site.base_url must be an HTTPS URL without query or fragment"
-        )
-    return SiteConfig(base_url=base_url)
 
 
 def _load_channel(data: Any, index: int) -> ChannelConfig:
@@ -150,6 +131,7 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
             "minimum_release_version",
             "allow_prereleases",
             "ignored_channels",
+            "allowed_metadata_version_mismatch_tags",
             "unlabeled_channel_rules",
         },
         context,
@@ -201,6 +183,21 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
     )
     _require_unique(ignored_channels, f"{context} ignored channel")
 
+    allowed_metadata_version_mismatch_tags = (
+        _string_tuple(data, "allowed_metadata_version_mismatch_tags", context)
+        if "allowed_metadata_version_mismatch_tags" in data
+        else ()
+    )
+    if any(not tag for tag in allowed_metadata_version_mismatch_tags):
+        raise ConfigError(
+            f"{context}.allowed_metadata_version_mismatch_tags must not contain "
+            "empty tags"
+        )
+    _require_unique(
+        allowed_metadata_version_mismatch_tags,
+        f"{context} allowed metadata version mismatch tag",
+    )
+
     unlabeled_channel_rules = _load_unlabeled_channel_rules(
         data.get("unlabeled_channel_rules", []),
         context,
@@ -222,6 +219,7 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
         minimum_release_version=minimum_release_version,
         allow_prereleases=allow_prereleases,
         ignored_channels=ignored_channels,
+        allowed_metadata_version_mismatch_tags=(allowed_metadata_version_mismatch_tags),
         unlabeled_channel_rules=unlabeled_channel_rules,
         has_version_policy=has_version_policy,
     )

@@ -9,7 +9,9 @@ from pathlib import Path
 from build_index.collection import CollectionError, load_collection, write_collection
 from build_index.config import ConfigError, load_config, private_repository_scope
 from build_index.github import GitHubClient, collect_release_assets
-from build_index.pages import build_pages
+from build_index.index_tree import build_index_tree
+from build_index.mirror import S3ObjectStore, mirror_artifacts
+from build_index.r2_sync import sync_simple_documents
 
 DEFAULT_CONFIG = Path("config/index.toml")
 DEFAULT_COLLECTION = Path("build/releases.json")
@@ -53,15 +55,59 @@ def main() -> None:
         help="Write owner and repositories as GitHub Actions step outputs.",
     )
 
+    mirror_parser = subparsers.add_parser(
+        "mirror",
+        help="Mirror collected wheels and core metadata to R2.",
+    )
+    mirror_parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    mirror_parser.add_argument("--collection", type=Path, default=DEFAULT_COLLECTION)
+    mirror_parser.add_argument("--output", type=Path, default=DEFAULT_COLLECTION)
+    mirror_parser.add_argument(
+        "--token-env",
+        default="GH_TOKEN",
+        help="Environment variable containing a GitHub token.",
+    )
+    mirror_parser.add_argument(
+        "--public-base-url",
+        default=os.environ.get("R2_PUBLIC_URL"),
+        help="Public base URL serving the R2 bucket.",
+    )
+    mirror_parser.add_argument(
+        "--bucket",
+        default=os.environ.get("R2_BUCKET"),
+        help="R2 bucket name.",
+    )
+    mirror_parser.add_argument(
+        "--endpoint",
+        default=os.environ.get("R2_ENDPOINT"),
+        help="R2 S3 endpoint URL.",
+    )
     build_parser = subparsers.add_parser(
         "build", help="Build static JSON and HTML Simple API documents."
     )
     build_parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     build_parser.add_argument("--collection", type=Path, default=DEFAULT_COLLECTION)
     build_parser.add_argument("--output", type=Path, default=Path("dist"))
-    build_parser.add_argument(
-        "--base-url",
-        help="Override the configured public base URL.",
+    sync_parser = subparsers.add_parser(
+        "sync-r2",
+        help="Sync generated Simple API documents to R2.",
+    )
+    sync_parser.add_argument("--input", type=Path, default=Path("dist"))
+    sync_parser.add_argument(
+        "--bucket",
+        default=os.environ.get("R2_BUCKET"),
+        help="R2 bucket name.",
+    )
+    sync_parser.add_argument(
+        "--endpoint",
+        default=os.environ.get("R2_ENDPOINT"),
+        help="R2 S3 endpoint URL.",
+    )
+    sync_parser.add_argument(
+        "--upload-workers",
+        type=_positive_integer,
+        default=os.environ.get("R2_UPLOAD_CONCURRENCY", "16"),
+        help="Maximum concurrent document uploads.",
     )
 
     args = parser.parse_args()
@@ -109,19 +155,69 @@ def main() -> None:
                         output.write("__BUILD_INDEX_REPOSITORIES__\n")
                     else:
                         output.write("repositories=\n")
+        elif args.command == "mirror":
+            config = load_config(args.config)
+            collection = load_collection(args.collection)
+            token = os.environ.get(args.token_env)
+            if not token and any(
+                repository.access == "private" for repository in config.repositories
+            ):
+                raise CollectionError(
+                    f"GitHub token environment variable is not set: {args.token_env}"
+                )
+            if not args.public_base_url:
+                raise CollectionError("R2 public base URL is not set")
+            if not args.bucket:
+                raise CollectionError("R2 bucket is not set")
+            if not args.endpoint:
+                raise CollectionError("R2 endpoint is not set")
+            mirrored = mirror_artifacts(
+                config,
+                collection,
+                GitHubClient(token),
+                S3ObjectStore(
+                    args.bucket,
+                    args.endpoint,
+                ),
+                public_base_url=args.public_base_url,
+                log=lambda message: print(message, flush=True),
+            )
+            write_collection(args.output, mirrored)
+            print(
+                f"mirrored release collection: {args.output}, "
+                f"{len(mirrored.artifacts)} wheel assets"
+            )
         elif args.command == "build":
             config = load_config(args.config)
             collection = load_collection(args.collection)
-            written = build_pages(
+            written = build_index_tree(
                 config,
                 args.output,
                 collection=collection,
-                base_url=args.base_url,
             )
             print(
                 f"built index tree: {len(written)} files, "
                 f"{len(config.channels)} channels, "
                 f"{len(collection.artifacts)} wheel assets"
             )
+        elif args.command == "sync-r2":
+            if not args.bucket:
+                raise CollectionError("R2 bucket is not set")
+            if not args.endpoint:
+                raise CollectionError("R2 endpoint is not set")
+            sync_simple_documents(
+                args.input,
+                args.bucket,
+                args.endpoint,
+                upload_workers=args.upload_workers,
+                log=lambda message: print(message, flush=True),
+            )
     except (CollectionError, ConfigError, ValueError) as error:
         parser.error(str(error))
+
+
+def _positive_integer(value: str) -> int:
+    result = int(value)
+    if result < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return result

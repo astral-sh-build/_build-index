@@ -1,8 +1,5 @@
 schema_version = 1
 
-[site]
-base_url = "https://build-index.invalid"
-
 # Initial channels reflect observed first-party build needs. A channel being
 # present does not imply that any package is currently published in it.
 [[channel]]
@@ -50,6 +47,7 @@ projects = ["apex"]
 [[repository]]
 repository = "astral-sh-build/build-causal-conv1d"
 projects = ["causal-conv1d"]
+tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
 
 [[repository]]
 repository = "astral-sh-build/build-deepep"
@@ -62,6 +60,16 @@ projects = ["deep-gemm"]
 [[repository]]
 repository = "astral-sh-build/build-deepspeed"
 projects = ["deepspeed"]
+tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
+# These tags encode a commit hash in wheel metadata while their filenames
+# encode CUDA/Torch compatibility. Preserve and publish the original bytes,
+# accepting that pip rejects the inconsistent local versions.
+allowed_metadata_version_mismatch_tags = [
+  "v0.18.1",
+  "v0.18.2",
+  "v0.18.3",
+  "v0.18.4-r1",
+]
 
 [[repository]]
 repository = "astral-sh-build/build-detectron2"
@@ -86,6 +94,7 @@ projects = ["grouped-gemm"]
 [[repository]]
 repository = "astral-sh-build/build-mamba"
 projects = ["mamba-ssm"]
+tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
 
 [[repository]]
 repository = "astral-sh-build/build-megablocks"

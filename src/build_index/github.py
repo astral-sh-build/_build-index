@@ -9,6 +9,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urljoin
 
@@ -211,6 +212,56 @@ class GitHubClient:
                 f"GitHub release asset download failed for {asset_api_url}: {error}"
             ) from error
 
+    def download_asset(
+        self,
+        asset_api_url: str,
+        destination: Path,
+        *,
+        repository: str | None = None,
+        access: str = "private",
+        log: Callable[[str], None] | None = None,
+    ) -> tuple[str, int]:
+        request = urllib.request.Request(
+            asset_api_url,
+            headers=self._headers("application/octet-stream", token=self.token),
+        )
+        try:
+            return _download_github_asset(request, destination)
+        except urllib.error.HTTPError as error:
+            if not (
+                self.token
+                and access == "public"
+                and _is_repository_access_rejection(error)
+            ):
+                raise GitHubError(
+                    f"GitHub release asset download failed for {asset_api_url}: {error}"
+                ) from error
+            error.close()
+            if log is not None:
+                log(
+                    f"  authentication mode for {repository or asset_api_url}: "
+                    "anonymous fallback"
+                )
+            anonymous_request = urllib.request.Request(
+                asset_api_url,
+                headers=self._headers("application/octet-stream", token=None),
+            )
+            try:
+                return _download_github_asset(anonymous_request, destination)
+            except (
+                OSError,
+                urllib.error.HTTPError,
+                urllib.error.URLError,
+            ) as anonymous_error:
+                raise GitHubError(
+                    f"GitHub release asset download failed for "
+                    f"{asset_api_url}: {anonymous_error}"
+                ) from anonymous_error
+        except (OSError, urllib.error.URLError) as error:
+            raise GitHubError(
+                f"GitHub release asset download failed for {asset_api_url}: {error}"
+            ) from error
+
     def _headers(self, accept: str, *, token: str | None) -> dict[str, str]:
         headers = {
             "Accept": accept,
@@ -228,6 +279,21 @@ def _sha256_github_asset(request: urllib.request.Request) -> str:
         for chunk in iter(lambda: response.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _download_github_asset(
+    request: urllib.request.Request,
+    destination: Path,
+) -> tuple[str, int]:
+    digest = hashlib.sha256()
+    size = 0
+    with _open_github_asset(request) as response:
+        with destination.open("wb") as output:
+            for chunk in iter(lambda: response.read(1024 * 1024), b""):
+                output.write(chunk)
+                digest.update(chunk)
+                size += len(chunk)
+    return digest.hexdigest(), size
 
 
 def _is_repository_access_rejection(error: urllib.error.HTTPError) -> bool:
@@ -597,7 +663,8 @@ def _collected_artifact(
         project=project,
         version=str(version),
         channel=channel,
-        url=_string(asset, "browser_download_url", context),
+        source_url=_string(asset, "browser_download_url", context),
+        download_url=_string(asset, "url", context),
         sha256=sha256,
         size=_integer(asset, "size", context),
         upload_time=_string(asset, "created_at", context),

@@ -77,7 +77,7 @@ creates a short-lived installation token. It requires an explicit repository
 list and hardcodes `Contents: Read`, so the token cannot silently expand to
 every repository in the App installation or request write access.
 
-The Pages branch workflow derives that repository list from configured private
+The publication workflow derives that repository list from configured private
 sources only, then uses the action before release collection:
 
 ```yaml

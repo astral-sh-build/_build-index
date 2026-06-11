@@ -6,54 +6,31 @@ import pytest
 from build_index.config import ConfigError, load_config, private_repository_scope
 
 ROOT = Path(__file__).parents[1]
-CONFIG = ROOT / "config" / "index.toml"
+CONFIG = ROOT / "tests" / "fixtures" / "index.toml"
 
 
-def test_active_config_matches_validated_producer_inventory() -> None:
+def test_config_loads_representative_fixture() -> None:
     config = load_config(CONFIG)
 
-    assert config.site.base_url == "https://build-index.invalid"
-    assert {channel.name for channel in config.channels} == {
+    assert tuple(channel.name for channel in config.channels) == (
         "cpu",
+        "cu118",
         "cu121",
         "cu124",
         "cu126",
-        "cu118",
         "cu128",
         "cu129",
         "cu130",
-    }
-    assert len(config.repositories) == 24
-    assert all(repository.channels is None for repository in config.repositories)
-
-
-def test_active_config_upstream_vllm_policy() -> None:
-    config = load_config(CONFIG)
-
-    assert {channel.name for channel in config.channels} >= {"cpu", "cu128"}
-    assert all(channel.name != "pypi" for channel in config.channels)
-    assert all(
-        repository.repository != "astral-sh-build/build-rdkit"
-        for repository in config.repositories
     )
-    upstream = next(
-        repository
+    assert tuple(
+        (repository.repository, repository.projects)
         for repository in config.repositories
-        if repository.repository == "vllm-project/vllm"
+    ) == (
+        ("example/build-index-test-cpu", ("index-test-cpu",)),
+        ("example/build-index-test-gpu", ("index-test-gpu",)),
+        ("example/build-index-test-mixed", ("index-test-mixed",)),
+        ("example/build-grouped-gemm", ("grouped-gemm",)),
     )
-    assert upstream.access == "public"
-    assert upstream.tag_regex == "^v(?P<version>.+)$"
-    assert str(upstream.minimum_release_version) == "0.9.1"
-    assert upstream.ignored_channels == ("cpu",)
-    assert [
-        (str(rule.from_version), str(rule.before_version), rule.channel)
-        for rule in upstream.unlabeled_channel_rules
-    ] == [
-        ("0.9.1", "0.12.0", "cu128"),
-        ("0.12.0", "0.20.0", "cu129"),
-        ("0.20.0", "0.23.0", "cu130"),
-    ]
-    assert len(config.repositories) == 24
 
 
 def test_config_rejects_noncanonical_channel_name(tmp_path: Path) -> None:
@@ -127,16 +104,17 @@ projects = ["Example_Package"]
 
 def test_repository_policy_defaults_to_private_opaque_tags() -> None:
     config = load_config(CONFIG)
-    private = tuple(
+    opaque_private = tuple(
         repository
         for repository in config.repositories
-        if repository.access == "private"
+        if repository.access == "private" and not repository.has_version_policy
     )
 
-    assert len(private) == 23
-    assert all(repository.tag_regex == "^(?P<version>.+)$" for repository in private)
-    assert all(repository.has_version_policy is False for repository in private)
-    assert all(repository.allow_prereleases is False for repository in private)
+    assert opaque_private == config.repositories
+    assert all(
+        repository.tag_regex == "^(?P<version>.+)$" for repository in opaque_private
+    )
+    assert all(repository.allow_prereleases is False for repository in opaque_private)
 
 
 @pytest.mark.parametrize(
@@ -283,23 +261,28 @@ ignored_channels = ["cuda12.8"]
 
 def test_private_repository_scope_excludes_public_sources() -> None:
     config = load_config(CONFIG)
-
     owner, repositories = private_repository_scope(config)
 
-    assert owner == "astral-sh-build"
-    assert "build-vllm" in repositories
-    assert "vllm" not in repositories
+    assert owner == "example"
+    assert repositories == (
+        "build-grouped-gemm",
+        "build-index-test-cpu",
+        "build-index-test-gpu",
+        "build-index-test-mixed",
+    )
 
 
 def test_private_repository_scope_allows_public_only_config() -> None:
     config = load_config(CONFIG)
-    public = tuple(
-        repository
-        for repository in config.repositories
-        if repository.access == "public"
+    public = replace(
+        config.repositories[0],
+        repository="vllm-project/vllm",
+        access="public",
     )
 
-    owner, repositories = private_repository_scope(replace(config, repositories=public))
+    owner, repositories = private_repository_scope(
+        replace(config, repositories=(public,))
+    )
 
     assert owner == ""
     assert repositories == ()

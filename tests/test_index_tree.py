@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -9,7 +10,7 @@ from build_index.collection import (
     collection_from_artifacts,
 )
 from build_index.config import load_config
-from build_index.pages import build_pages
+from build_index.index_tree import build_index_tree
 
 ROOT = Path(__file__).parents[1]
 CONFIG = load_config(ROOT / "tests" / "fixtures" / "index.toml")
@@ -24,6 +25,7 @@ def artifact(
     *,
     sha256: str,
     size: int,
+    requires_python: str | None = None,
 ) -> CollectedArtifact:
     return CollectedArtifact(
         repository=repository,
@@ -32,13 +34,17 @@ def artifact(
         project=project,
         version=version,
         channel=channel,
-        url=(
+        source_url=(
             f"https://github.com/{repository}/releases/download/0.1.0/"
             f"{filename.replace('+', '%2B')}"
         ),
+        download_url="https://api.github.com/releases/assets/1",
         sha256=sha256,
         size=size,
         upload_time="2026-06-02T17:13:12Z",
+        published_url=f"https://packages.example/artifacts/{sha256}/{filename}",
+        metadata_sha256="e" * 64,
+        requires_python=requires_python,
     )
 
 
@@ -62,6 +68,7 @@ def example_collection():
                 "cu128",
                 sha256="b" * 64,
                 size=5002,
+                requires_python=">=3.10",
             ),
             artifact(
                 "example/build-index-test-mixed",
@@ -85,14 +92,13 @@ def example_collection():
     )
 
 
-def test_build_pages_generates_only_landing_and_simple_api(tmp_path: Path) -> None:
+def test_build_index_tree_generates_simple_api_documents(tmp_path: Path) -> None:
     output = tmp_path / "dist"
 
-    build_pages(
+    build_index_tree(
         CONFIG,
         output,
         collection=example_collection(),
-        base_url="https://example.invalid/_build-index",
     )
 
     root = json.loads((output / "simple" / "cu128" / "index.json").read_text())
@@ -108,7 +114,6 @@ def test_build_pages_generates_only_landing_and_simple_api(tmp_path: Path) -> No
         output / "simple" / "v1+html" / "cu128" / "index-test-gpu" / "index.html"
     ).read_text()
     root_html = (output / "simple" / "v1+html" / "cu128" / "index.html").read_text()
-    landing_html = (output / "index.html").read_text()
 
     assert root == {
         "meta": {"api-version": "1.4"},
@@ -123,37 +128,39 @@ def test_build_pages_generates_only_landing_and_simple_api(tmp_path: Path) -> No
     assert project["versions"] == ["0.1.0+cu128"]
     assert project["files"] == [
         {
+            "core-metadata": {"sha256": "e" * 64},
             "filename": "index_test_gpu-0.1.0+cu128-py3-none-any.whl",
             "hashes": {"sha256": "b" * 64},
+            "requires-python": ">=3.10",
             "size": 5002,
             "upload-time": "2026-06-02T17:13:12Z",
             "url": (
-                "https://github.com/example/build-index-test-gpu/releases/"
-                "download/0.1.0/"
-                "index_test_gpu-0.1.0%2Bcu128-py3-none-any.whl"
+                "https://packages.example/artifacts/"
+                + "b" * 64
+                + "/index_test_gpu-0.1.0+cu128-py3-none-any.whl"
             ),
         }
     ]
     assert 'content="1.4"' in root_html
     assert 'content="1.4"' in project_html
     assert "#sha256=" + "b" * 64 in project_html
-    assert "2 projects" in landing_html
-    assert "Catalog" not in landing_html
+    assert 'data-core-metadata="sha256=' + "e" * 64 + '"' in project_html
+    assert 'data-requires-python="&gt;=3.10"' in project_html
     assert not (output / "catalog").exists()
     assert not (output / "artifacts").exists()
-    assert (output / ".nojekyll").exists()
+    assert not (output / "index.html").exists()
 
 
-def test_build_pages_generates_empty_channel_documents(tmp_path: Path) -> None:
+def test_build_index_tree_generates_empty_channel_documents(tmp_path: Path) -> None:
     output = tmp_path / "dist"
 
-    build_pages(CONFIG, output, base_url="https://example.invalid/_build-index")
+    build_index_tree(CONFIG, output)
 
     root = json.loads((output / "simple" / "cu128" / "index.json").read_text())
     assert root == {"meta": {"api-version": "1.4"}, "projects": []}
 
 
-def test_build_pages_rejects_unconfigured_repository(tmp_path: Path) -> None:
+def test_build_index_tree_rejects_unconfigured_repository(tmp_path: Path) -> None:
     collection = collection_from_artifacts(
         [
             artifact(
@@ -169,26 +176,46 @@ def test_build_pages_rejects_unconfigured_repository(tmp_path: Path) -> None:
     )
 
     with pytest.raises(CollectionError, match="unconfigured repository"):
-        build_pages(CONFIG, tmp_path / "dist", collection=collection)
+        build_index_tree(CONFIG, tmp_path / "dist", collection=collection)
 
 
-def test_build_pages_replaces_output_tree(tmp_path: Path) -> None:
+def test_build_index_tree_rejects_unmirrored_artifact(tmp_path: Path) -> None:
+    collection = example_collection()
+    unmirrored = collection_from_artifacts(
+        [
+            replace(
+                artifact,
+                published_url=None,
+                metadata_sha256=None,
+                requires_python=None,
+            )
+            if index == 0
+            else artifact
+            for index, artifact in enumerate(collection.artifacts)
+        ]
+    )
+
+    with pytest.raises(CollectionError, match="unmirrored artifact"):
+        build_index_tree(CONFIG, tmp_path / "dist", collection=unmirrored)
+
+
+def test_build_index_tree_replaces_output_tree(tmp_path: Path) -> None:
     output = tmp_path / "dist"
     stale = output / "stale.txt"
     stale.parent.mkdir()
     stale.write_text("stale")
 
-    build_pages(CONFIG, output, collection=example_collection())
+    build_index_tree(CONFIG, output, collection=example_collection())
 
     assert not stale.exists()
 
 
-def test_repeated_page_builds_are_byte_identical(tmp_path: Path) -> None:
+def test_repeated_index_tree_builds_are_byte_identical(tmp_path: Path) -> None:
     first = tmp_path / "first"
     second = tmp_path / "second"
 
-    build_pages(CONFIG, first, collection=example_collection())
-    build_pages(CONFIG, second, collection=example_collection())
+    build_index_tree(CONFIG, first, collection=example_collection())
+    build_index_tree(CONFIG, second, collection=example_collection())
 
     first_files = {
         path.relative_to(first): path.read_bytes()

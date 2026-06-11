@@ -13,7 +13,7 @@ from packaging.version import Version
 
 from build_index import github as github_module
 from build_index.collection import CollectionError
-from build_index.config import load_config
+from build_index.config import RepositoryConfig, UnlabeledChannelRule, load_config
 from build_index.github import (
     GitHubClient,
     GitHubError,
@@ -24,7 +24,6 @@ from build_index.github import (
 
 ROOT = Path(__file__).parents[1]
 CONFIG = load_config(ROOT / "tests" / "fixtures" / "index.toml")
-PRODUCTION_CONFIG = load_config(ROOT / "config" / "index.toml")
 
 
 class FakeGitHubClient:
@@ -92,12 +91,21 @@ def release(
 
 
 def upstream_vllm_config():
-    repository = next(
-        repository
-        for repository in PRODUCTION_CONFIG.repositories
-        if repository.repository == "vllm-project/vllm"
+    repository = RepositoryConfig(
+        repository="vllm-project/vllm",
+        projects=("vllm",),
+        access="public",
+        tag_regex=r"^v(?P<version>.+)$",
+        minimum_release_version=Version("0.9.1"),
+        ignored_channels=("cpu",),
+        unlabeled_channel_rules=(
+            UnlabeledChannelRule(Version("0.9.1"), Version("0.12.0"), "cu128"),
+            UnlabeledChannelRule(Version("0.12.0"), Version("0.20.0"), "cu129"),
+            UnlabeledChannelRule(Version("0.20.0"), Version("0.23.0"), "cu130"),
+        ),
+        has_version_policy=True,
     )
-    return replace(PRODUCTION_CONFIG, repositories=(repository,))
+    return replace(CONFIG, repositories=(repository,))
 
 
 def test_collect_release_assets_assigns_channels_and_ignores_non_wheels() -> None:
@@ -220,7 +228,7 @@ def test_collect_release_assets_normalizes_legacy_wheel_filename() -> None:
     assert collection.artifacts[0].filename == (
         "index_test_gpu-1.2.1+1300811.cu12.8torch2.10.0cxx11abiTRUE-py3-none-any.whl"
     )
-    assert collection.artifacts[0].url.endswith(source)
+    assert collection.artifacts[0].source_url.endswith(source)
     assert any("normalized wheel filename" in message for message in messages)
 
 
@@ -248,7 +256,9 @@ def test_collect_release_assets_hashes_asset_when_digest_is_absent() -> None:
     assert client.hash_requests == [api_url]
 
 
-def test_github_client_asset_hash_strips_auth_on_redirect() -> None:
+def test_github_client_asset_download_strips_auth_on_redirect(
+    tmp_path: Path,
+) -> None:
     content = b"release asset bytes"
 
     class FileHandler(BaseHTTPRequestHandler):
@@ -276,10 +286,14 @@ def test_github_client_asset_hash_strips_auth_on_redirect() -> None:
     api_thread.start()
     api_url = f"http://127.0.0.1:{api.server_address[1]}/asset"
     try:
-        assert (
-            GitHubClient("test-token").asset_sha256(api_url)
-            == hashlib.sha256(content).hexdigest()
+        client = GitHubClient("test-token")
+        assert client.asset_sha256(api_url) == hashlib.sha256(content).hexdigest()
+        destination = tmp_path / "wheel.whl"
+        assert client.download_asset(api_url, destination) == (
+            hashlib.sha256(content).hexdigest(),
+            len(content),
         )
+        assert destination.read_bytes() == content
     finally:
         api.shutdown()
         api.server_close()
