@@ -108,10 +108,10 @@ projects = ["grouped-gemm"]
 [[repository]]
 repository = "astral-sh-build/build-mamba"
 projects = ["mamba-ssm"]
-# Backfill newest-to-oldest to keep each mirror run within the GitHub App
-# token lifetime. Lower through 2.3.1, 2.3.0, then 2.2.6.post3.
+# Backfilled newest-to-oldest to keep each mirror run within the GitHub App
+# token lifetime. Keep this reviewed floor unless older releases are added deliberately.
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
-minimum_release_version = "2.3.0"
+minimum_release_version = "2.2.6.post3"
 
 [[repository]]
 repository = "astral-sh-build/build-megablocks"
