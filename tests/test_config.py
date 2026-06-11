@@ -19,6 +19,7 @@ EXPECTED_REPOSITORIES = (
     ("astral-sh-build/build-flash-attention", ("flash-attn",)),
     ("astral-sh-build/build-flash-attention-3", ("flash-attn-3",)),
     ("astral-sh-build/build-grouped-gemm", ("grouped-gemm",)),
+    ("astral-sh-build/build-mamba", ("mamba-ssm",)),
     ("astral-sh-build/build-megablocks", ("megablocks",)),
     ("astral-sh-build/build-mmcv", ("mmcv",)),
     ("astral-sh-build/build-nvmolkit", ("nvmolkit",)),
@@ -179,6 +180,7 @@ def test_repository_policy_defaults_to_private_opaque_tags() -> None:
     assert tuple(repository.repository for repository in versioned_private) == (
         "astral-sh-build/build-causal-conv1d",
         "astral-sh-build/build-deepspeed",
+        "astral-sh-build/build-mamba",
     )
 
 
