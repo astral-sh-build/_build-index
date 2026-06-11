@@ -51,6 +51,7 @@ class CoreMetadata:
     contents: bytes
     sha256: str
     requires_python: str | None
+    version_mismatch: bool
 
 
 class ArtifactDownloader(Protocol):
@@ -229,7 +230,20 @@ def mirror_artifacts(
                         f"{artifact.filename}"
                     )
 
-                core_metadata = extract_core_metadata(wheel, artifact)
+                core_metadata = extract_core_metadata(
+                    wheel,
+                    artifact,
+                    allow_version_mismatch=(
+                        artifact.release
+                        in repository.allowed_metadata_version_mismatch_tags
+                    ),
+                )
+                if core_metadata.version_mismatch:
+                    logger(
+                        "tolerated configured wheel metadata Version mismatch: "
+                        f"{artifact.repository}@{artifact.release} "
+                        f"({artifact.filename})"
+                    )
                 metadata_path = directory / "artifact.metadata"
                 metadata_path.write_bytes(core_metadata.contents)
 
@@ -284,6 +298,8 @@ def artifact_url(public_base_url: str, key: str) -> str:
 def extract_core_metadata(
     wheel: Path,
     artifact: CollectedArtifact,
+    *,
+    allow_version_mismatch: bool = False,
 ) -> CoreMetadata:
     """Extract and validate exact core metadata bytes from one wheel."""
     try:
@@ -330,10 +346,11 @@ def extract_core_metadata(
             f"wheel metadata has invalid Version: {artifact.filename}"
         ) from error
     _distribution, filename_version = parse_collected_wheel_filename(artifact.filename)
-    if not _metadata_version_matches_filename(
+    version_mismatch = not _metadata_version_matches_filename(
         parsed_metadata_version,
         filename_version,
-    ):
+    )
+    if version_mismatch and not allow_version_mismatch:
         raise MirrorError(
             f"wheel metadata Version does not match filename: {artifact.filename}"
         )
@@ -357,6 +374,7 @@ def extract_core_metadata(
         contents=contents,
         sha256=hashlib.sha256(contents).hexdigest(),
         requires_python=requires_python,
+        version_mismatch=version_mismatch,
     )
 
 

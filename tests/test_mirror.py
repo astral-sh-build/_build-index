@@ -428,6 +428,48 @@ def test_extract_core_metadata_rejects_unrelated_local_version(tmp_path: Path) -
         extract_core_metadata(wheel, artifact)
 
 
+def test_mirror_allows_version_mismatch_for_exact_configured_tag(
+    tmp_path: Path,
+) -> None:
+    wheel = tmp_path / FILENAME
+    artifact = make_wheel(
+        wheel,
+        b"Metadata-Version: 2.4\nName: grouped-gemm\nVersion: 0.1.0+source-commit\n\n",
+    )
+    repository = CONFIG.repository(artifact.repository)
+    assert repository is not None
+    config = replace(
+        CONFIG,
+        repositories=tuple(
+            replace(
+                item,
+                allowed_metadata_version_mismatch_tags=(artifact.release,),
+            )
+            if item.repository == artifact.repository
+            else item
+            for item in CONFIG.repositories
+        ),
+    )
+    store = FakeStore()
+    messages: list[str] = []
+
+    mirrored = mirror_artifacts(
+        config,
+        collection_from_artifacts([artifact]),
+        FakeDownloader(wheel),
+        store,
+        public_base_url="https://packages.example",
+        log=messages.append,
+    )
+
+    assert mirrored.artifacts[0].metadata_sha256 is not None
+    assert store.objects[artifact_key(artifact)][0] == wheel.read_bytes()
+    assert any(
+        "tolerated configured wheel metadata Version mismatch" in message
+        for message in messages
+    )
+
+
 def test_s3_object_store_reads_resume_metadata_and_sets_immutable_headers(
     tmp_path: Path,
 ) -> None:
