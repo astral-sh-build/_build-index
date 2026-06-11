@@ -71,8 +71,8 @@ projects = ["deep-gemm"]
 [[repository]]
 repository = "astral-sh-build/build-deepspeed"
 projects = ["deepspeed"]
-# Backfill newest-to-oldest to keep each mirror run within the GitHub App
-# token lifetime. Lower this floor one reviewed release at a time.
+# Backfilled newest-to-oldest to keep each mirror run within the GitHub App
+# token lifetime. Keep this reviewed floor unless older releases are needed.
 # These tags encode a commit hash in wheel metadata while their filenames
 # encode CUDA/Torch compatibility. Preserve and publish the original bytes,
 # accepting that pip rejects the inconsistent local versions.
@@ -83,7 +83,7 @@ allowed_metadata_version_mismatch_tags = [
   "v0.18.4-r1",
 ]
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
-minimum_release_version = "0.17.6"
+minimum_release_version = "0.17.5"
 
 [[repository]]
 repository = "astral-sh-build/build-detectron2"
