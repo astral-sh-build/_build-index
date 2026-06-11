@@ -83,7 +83,7 @@ allowed_metadata_version_mismatch_tags = [
   "v0.18.4-r1",
 ]
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
-minimum_release_version = "0.18.3"
+minimum_release_version = "0.18.2"
 
 [[repository]]
 repository = "astral-sh-build/build-detectron2"
