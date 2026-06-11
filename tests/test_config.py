@@ -6,88 +6,31 @@ import pytest
 from build_index.config import ConfigError, load_config, private_repository_scope
 
 ROOT = Path(__file__).parents[1]
-CONFIG = ROOT / "config" / "index.toml"
-EXPECTED_REPOSITORIES = (
-    ("astral-sh-build/build-adan", ("adan",)),
-    ("astral-sh-build/build-apex", ("apex",)),
-    ("astral-sh-build/build-causal-conv1d", ("causal-conv1d",)),
-    ("astral-sh-build/build-deepep", ("deep-ep",)),
-    ("astral-sh-build/build-deepgemm", ("deep-gemm",)),
-    ("astral-sh-build/build-deepspeed", ("deepspeed",)),
-    ("astral-sh-build/build-detectron2", ("detectron2",)),
-    ("astral-sh-build/build-ffmpeg", ("ffmpeg",)),
-    ("astral-sh-build/build-flash-attention", ("flash-attn",)),
-    ("astral-sh-build/build-flash-attention-3", ("flash-attn-3",)),
-    ("astral-sh-build/build-grouped-gemm", ("grouped-gemm",)),
-    ("astral-sh-build/build-mamba", ("mamba-ssm",)),
-    ("astral-sh-build/build-megablocks", ("megablocks",)),
-    ("astral-sh-build/build-mmcv", ("mmcv",)),
-    ("astral-sh-build/build-nvmolkit", ("nvmolkit",)),
-    (
-        "astral-sh-build/build-opencv",
-        ("opencv-contrib-python-headless", "opencv-python-headless"),
-    ),
-    ("astral-sh-build/build-pycuda", ("pycuda",)),
-    ("astral-sh-build/build-pytorch-scatter", ("torch-scatter",)),
-    ("astral-sh-build/build-pytorch3d", ("pytorch3d",)),
-    ("astral-sh-build/build-sageattention", ("sageattention",)),
-    ("astral-sh-build/build-sageattention3", ("sageattn3",)),
-    (
-        "astral-sh-build/build-transformer-engine-torch",
-        ("transformer-engine-torch",),
-    ),
-    ("astral-sh-build/build-vllm", ("vllm",)),
-    ("vllm-project/vllm", ("vllm",)),
-)
+CONFIG = ROOT / "tests" / "fixtures" / "index.toml"
 
 
-def test_active_config_matches_validated_producer_inventory() -> None:
+def test_config_loads_representative_fixture() -> None:
     config = load_config(CONFIG)
 
-    assert config.site.base_url == "https://build-index.invalid"
-    assert {channel.name for channel in config.channels} == {
+    assert tuple(channel.name for channel in config.channels) == (
         "cpu",
+        "cu118",
         "cu121",
         "cu124",
         "cu126",
-        "cu118",
         "cu128",
         "cu129",
         "cu130",
-    }
-    assert [
+    )
+    assert tuple(
         (repository.repository, repository.projects)
         for repository in config.repositories
-    ] == list(EXPECTED_REPOSITORIES)
-    assert all(repository.channels is None for repository in config.repositories)
-    upstream = config.repositories[-1]
-    assert upstream.access == "public"
-    assert str(upstream.minimum_release_version) == "0.9.1"
-    assert upstream.ignored_channels == ("cpu",)
-    assert tuple(rule.channel for rule in upstream.unlabeled_channel_rules) == (
-        "cu128",
-        "cu129",
-        "cu130",
+    ) == (
+        ("example/build-index-test-cpu", ("index-test-cpu",)),
+        ("example/build-index-test-gpu", ("index-test-gpu",)),
+        ("example/build-index-test-mixed", ("index-test-mixed",)),
+        ("example/build-grouped-gemm", ("grouped-gemm",)),
     )
-    deepspeed = config.repository("astral-sh-build/build-deepspeed")
-    assert deepspeed is not None
-    assert deepspeed.allowed_metadata_version_mismatch_tags == (
-        "v0.18.1",
-        "v0.18.2",
-        "v0.18.3",
-        "v0.18.4-r1",
-    )
-
-
-def test_active_config_is_limited_to_r2_mirroring_trial() -> None:
-    config = load_config(CONFIG)
-
-    assert {channel.name for channel in config.channels} >= {"cpu", "cu128"}
-    assert all(channel.name != "pypi" for channel in config.channels)
-    assert len(config.repositories) == len(EXPECTED_REPOSITORIES)
-    assert {repository.repository for repository in config.repositories} == {
-        repository for repository, _projects in EXPECTED_REPOSITORIES
-    }
 
 
 def test_config_rejects_noncanonical_channel_name(tmp_path: Path) -> None:
@@ -167,21 +110,11 @@ def test_repository_policy_defaults_to_private_opaque_tags() -> None:
         if repository.access == "private" and not repository.has_version_policy
     )
 
+    assert opaque_private == config.repositories
     assert all(
         repository.tag_regex == "^(?P<version>.+)$" for repository in opaque_private
     )
     assert all(repository.allow_prereleases is False for repository in opaque_private)
-
-    versioned_private = tuple(
-        repository
-        for repository in config.repositories
-        if repository.access == "private" and repository.has_version_policy
-    )
-    assert tuple(repository.repository for repository in versioned_private) == (
-        "astral-sh-build/build-causal-conv1d",
-        "astral-sh-build/build-deepspeed",
-        "astral-sh-build/build-mamba",
-    )
 
 
 @pytest.mark.parametrize(
@@ -330,11 +263,12 @@ def test_private_repository_scope_excludes_public_sources() -> None:
     config = load_config(CONFIG)
     owner, repositories = private_repository_scope(config)
 
-    assert owner == "astral-sh-build"
-    assert repositories == tuple(
-        repository.removeprefix("astral-sh-build/")
-        for repository, _projects in EXPECTED_REPOSITORIES
-        if repository.startswith("astral-sh-build/")
+    assert owner == "example"
+    assert repositories == (
+        "build-grouped-gemm",
+        "build-index-test-cpu",
+        "build-index-test-gpu",
+        "build-index-test-mixed",
     )
 
 

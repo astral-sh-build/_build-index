@@ -1,11 +1,12 @@
 schema_version = 1
 
-[site]
-base_url = "https://build-index.invalid"
-
 [[channel]]
 name = "cpu"
 description = "CPU builds"
+
+[[channel]]
+name = "cu118"
+description = "CUDA 11.8 builds"
 
 [[channel]]
 name = "cu121"
@@ -42,3 +43,7 @@ projects = ["index-test-gpu"]
 [[repository]]
 repository = "example/build-index-test-mixed"
 projects = ["index-test-mixed"]
+
+[[repository]]
+repository = "example/build-grouped-gemm"
+projects = ["grouped-gemm"]

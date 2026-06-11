@@ -21,7 +21,7 @@ from build_index.mirror import (
 )
 
 ROOT = Path(__file__).parents[1]
-CONFIG = load_config(ROOT / "config" / "index.toml")
+CONFIG = load_config(ROOT / "tests" / "fixtures" / "index.toml")
 FILENAME = "grouped_gemm-0.1.0+cu128-py3-none-any.whl"
 
 
@@ -165,7 +165,7 @@ def make_wheel(path: Path, metadata: bytes | None = None) -> CollectedArtifact:
         )
     contents = path.read_bytes()
     return CollectedArtifact(
-        repository="astral-sh-build/build-grouped-gemm",
+        repository="example/build-grouped-gemm",
         release="0.1.0",
         filename=FILENAME,
         project="grouped-gemm",

@@ -9,8 +9,8 @@ from pathlib import Path
 from build_index.collection import CollectionError, load_collection, write_collection
 from build_index.config import ConfigError, load_config, private_repository_scope
 from build_index.github import GitHubClient, collect_release_assets
+from build_index.index_tree import build_index_tree
 from build_index.mirror import S3ObjectStore, mirror_artifacts
-from build_index.pages import build_pages
 from build_index.r2_sync import sync_simple_documents
 
 DEFAULT_CONFIG = Path("config/index.toml")
@@ -88,10 +88,6 @@ def main() -> None:
     build_parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     build_parser.add_argument("--collection", type=Path, default=DEFAULT_COLLECTION)
     build_parser.add_argument("--output", type=Path, default=Path("dist"))
-    build_parser.add_argument(
-        "--base-url",
-        help="Override the configured public base URL.",
-    )
     sync_parser = subparsers.add_parser(
         "sync-r2",
         help="Sync generated Simple API documents to R2.",
@@ -194,11 +190,10 @@ def main() -> None:
         elif args.command == "build":
             config = load_config(args.config)
             collection = load_collection(args.collection)
-            written = build_pages(
+            written = build_index_tree(
                 config,
                 args.output,
                 collection=collection,
-                base_url=args.base_url,
             )
             print(
                 f"built index tree: {len(written)} files, "

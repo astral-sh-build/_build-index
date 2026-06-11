@@ -1,8 +1,5 @@
 schema_version = 1
 
-[site]
-base_url = "https://build-index.invalid"
-
 # Initial channels reflect observed first-party build needs. A channel being
 # present does not imply that any package is currently published in it.
 [[channel]]
@@ -39,11 +36,6 @@ description = "CUDA 13.0 builds"
 
 # Repository entries admit a producer and its projects. Channels are inferred
 # from each wheel and checked against the global channel list above.
-# Temporarily limit publication to small producers while R2 artifact mirroring
-# is rolled out incrementally. Restore the remaining repository blocks after
-# the mirroring path is proven at increasing scale.
-# Active R2 artifact-mirroring trial producers, selected from the smallest
-# current catalogs so the complete mirror path can be exercised cheaply.
 [[repository]]
 repository = "astral-sh-build/build-adan"
 projects = ["adan"]
@@ -55,10 +47,7 @@ projects = ["apex"]
 [[repository]]
 repository = "astral-sh-build/build-causal-conv1d"
 projects = ["causal-conv1d"]
-# Backfilled newest-to-oldest to keep each mirror run within the GitHub App
-# token lifetime. Keep this reviewed floor unless older releases are needed.
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
-minimum_release_version = "1.5.4"
 
 [[repository]]
 repository = "astral-sh-build/build-deepep"
@@ -71,8 +60,7 @@ projects = ["deep-gemm"]
 [[repository]]
 repository = "astral-sh-build/build-deepspeed"
 projects = ["deepspeed"]
-# Backfilled newest-to-oldest to keep each mirror run within the GitHub App
-# token lifetime. Keep this reviewed floor unless older releases are needed.
+tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
 # These tags encode a commit hash in wheel metadata while their filenames
 # encode CUDA/Torch compatibility. Preserve and publish the original bytes,
 # accepting that pip rejects the inconsistent local versions.
@@ -82,8 +70,6 @@ allowed_metadata_version_mismatch_tags = [
   "v0.18.3",
   "v0.18.4-r1",
 ]
-tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
-minimum_release_version = "0.17.5"
 
 [[repository]]
 repository = "astral-sh-build/build-detectron2"
@@ -108,10 +94,7 @@ projects = ["grouped-gemm"]
 [[repository]]
 repository = "astral-sh-build/build-mamba"
 projects = ["mamba-ssm"]
-# Backfilled newest-to-oldest to keep each mirror run within the GitHub App
-# token lifetime. Keep this reviewed floor unless older releases are added deliberately.
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
-minimum_release_version = "2.2.6.post3"
 
 [[repository]]
 repository = "astral-sh-build/build-megablocks"
