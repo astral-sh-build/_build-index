@@ -1,4 +1,4 @@
-"""Publish generated Python Simple API documents to Cloudflare R2."""
+"""Publish generated package index documents to Cloudflare R2."""
 
 from __future__ import annotations
 
@@ -23,14 +23,14 @@ class DocumentSyncError(CollectionError):
 
 
 @dataclass(frozen=True)
-class SimpleDocument:
+class IndexDocument:
     stage: int
     key: str
     source: Path
     content_type: str
 
 
-def sync_simple_documents(
+def sync_index_documents(
     output: Path,
     bucket: str,
     endpoint: str,
@@ -39,7 +39,7 @@ def sync_simple_documents(
     client: S3Client | None = None,
     log: Callable[[str], None] | None = None,
 ) -> None:
-    """Publish one generated Simple API tree and delete stale documents."""
+    """Publish generated index documents and delete stale Simple API entries."""
     if not bucket:
         raise DocumentSyncError("R2 bucket must not be empty")
     if upload_workers < 1:
@@ -53,8 +53,12 @@ def sync_simple_documents(
         raise DocumentSyncError(str(error)) from error
 
     logger = log or (lambda _message: None)
-    documents = _simple_documents(output)
-    desired = {document.key for document in documents}
+    documents = _index_documents(output)
+    desired_simple = {
+        document.key
+        for document in documents
+        if document.key.startswith(_SIMPLE_PREFIX)
+    }
 
     for stage in (3, 2, 1):
         staged = tuple(document for document in documents if document.stage == stage)
@@ -73,14 +77,17 @@ def sync_simple_documents(
                 logger(f"uploaded s3://{bucket}/{key}")
 
     existing = _list_simple_keys(s3, bucket)
-    stale = sorted(existing - desired)
+    stale = sorted(existing - desired_simple)
     for batch in _batches(stale, _DELETE_BATCH_SIZE):
         _delete_documents(s3, bucket, batch)
         for key in batch:
             logger(f"deleted stale s3://{bucket}/{key}")
 
 
-def _simple_documents(output: Path) -> tuple[SimpleDocument, ...]:
+def _index_documents(output: Path) -> tuple[IndexDocument, ...]:
+    root = output / "index.html"
+    if root.is_symlink() or not root.is_file():
+        raise DocumentSyncError(f"missing generated index page: {root}")
     simple_root = output / "simple"
     if simple_root.is_symlink():
         raise DocumentSyncError(
@@ -89,7 +96,14 @@ def _simple_documents(output: Path) -> tuple[SimpleDocument, ...]:
     if not simple_root.is_dir():
         raise DocumentSyncError(f"missing generated Simple API tree: {simple_root}")
 
-    documents = []
+    documents = [
+        IndexDocument(
+            stage=1,
+            key="index.html",
+            source=root,
+            content_type="text/html; charset=utf-8",
+        )
+    ]
     keys = set()
     for path in sorted(simple_root.rglob("*")):
         if path.is_symlink():
@@ -112,7 +126,7 @@ def _simple_documents(output: Path) -> tuple[SimpleDocument, ...]:
             )
         keys.add(key)
         documents.append(
-            SimpleDocument(
+            IndexDocument(
                 stage=_document_stage(key),
                 key=key,
                 source=path,
@@ -120,7 +134,7 @@ def _simple_documents(output: Path) -> tuple[SimpleDocument, ...]:
             )
         )
 
-    if not documents:
+    if len(documents) == 1:
         raise DocumentSyncError(
             f"refusing to publish an empty Simple API tree: {simple_root}"
         )
@@ -141,7 +155,7 @@ def _document_stage(key: str) -> int:
 def _upload_document(
     client: S3Client,
     bucket: str,
-    document: SimpleDocument,
+    document: IndexDocument,
 ) -> str:
     try:
         with document.source.open("rb") as body:

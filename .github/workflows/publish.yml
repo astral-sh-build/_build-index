@@ -75,9 +75,11 @@ jobs:
         run: uv run --locked build-index mirror
 
       - name: Build index tree
+        env:
+          R2_PUBLIC_URL: ${{ vars.R2_PUBLIC_URL }}
         run: uv run --locked build-index build
 
-      - name: Sync Simple API documents to R2
+      - name: Sync index documents to R2
         env:
           AWS_ACCESS_KEY_ID: ${{ vars.R2_ACCESS_KEY_ID }}
           AWS_EC2_METADATA_DISABLED: "true"

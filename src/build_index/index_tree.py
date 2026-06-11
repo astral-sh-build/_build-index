@@ -20,8 +20,9 @@ def build_index_tree(
     output: Path,
     *,
     collection: ReleaseCollection | None = None,
+    public_base_url: str | None = None,
 ) -> tuple[Path, ...]:
-    """Build deterministic JSON and HTML Simple API documents."""
+    """Build deterministic index and Python Simple API documents."""
     files = _group_artifacts(config, collection or ReleaseCollection())
     projects_by_channel = {
         channel.name: tuple(
@@ -36,6 +37,17 @@ def build_index_tree(
     _reset_output(output)
 
     written: list[Path] = []
+    written.append(
+        _write_text(
+            output / "index.html",
+            _index_landing_html(
+                config.channels,
+                projects_by_channel,
+                files,
+                public_base_url=public_base_url,
+            ),
+        )
+    )
     written.append(
         _write_text(
             output / "simple" / "index.html",
@@ -191,6 +203,184 @@ def _simple_landing_html(channels: tuple[ChannelConfig, ...]) -> str:
         for channel in channels
     ]
     return _html_document("Simple API channels", links)
+
+
+def _index_landing_html(
+    channels: tuple[ChannelConfig, ...],
+    projects_by_channel: dict[str, tuple[str, ...]],
+    files: dict[tuple[str, str], list[CollectedArtifact]],
+    *,
+    public_base_url: str | None,
+) -> str:
+    populated_channels = tuple(
+        channel for channel in channels if projects_by_channel[channel.name]
+    )
+    example_channel = next(
+        (channel for channel in populated_channels if channel.name == "cu128"),
+        populated_channels[0] if populated_channels else channels[0],
+    )
+    example_projects = projects_by_channel[example_channel.name]
+    example_project = (
+        "vllm"
+        if "vllm" in example_projects
+        else example_projects[0]
+        if example_projects
+        else "PACKAGE"
+    )
+    example_versions = sorted(
+        {
+            artifact.version
+            for artifact in files.get((example_channel.name, example_project), ())
+        },
+        key=lambda value: (Version(value), value),
+        reverse=True,
+    )
+    example_version = example_versions[0] if example_versions else "VERSION"
+    example_requirement = f"{example_project}=={example_version}"
+    index_name = f"astral-{example_channel.name}"
+    base_url = (
+        public_base_url.rstrip("/") if public_base_url else "https://<index-host>"
+    )
+    index_url = f"{base_url}/simple/{example_channel.name}/"
+    lines = [
+        "<!doctype html>",
+        '<html lang="en">',
+        "  <head>",
+        '    <meta charset="utf-8">',
+        '    <meta name="viewport" content="width=device-width, initial-scale=1">',
+        '    <link rel="icon" href="data:,">',
+        "    <title>Astral package indexes</title>",
+        "  </head>",
+        "  <body>",
+        "    <header>",
+        "      <h1>Astral package indexes</h1>",
+        "      <p>Pre-built Python packages organized by compute platform.</p>",
+        "    </header>",
+        "    <main>",
+        '      <section aria-labelledby="available-indexes">',
+        '        <h2 id="available-indexes">Available indexes</h2>',
+        "        <table>",
+        "          <thead>",
+        "            <tr>",
+        '              <th scope="col">Index</th>',
+        '              <th scope="col">Description</th>',
+        '              <th scope="col">Packages</th>',
+        "            </tr>",
+        "          </thead>",
+        "          <tbody>",
+    ]
+    for channel in channels:
+        projects = projects_by_channel[channel.name]
+        lines.extend(
+            [
+                "            <tr>",
+                "              <td>"
+                f'<a href="./simple/{_escape(channel.name)}/">'
+                f"{_escape(channel.name)}</a></td>",
+                f"              <td>{_escape(channel.description)}</td>",
+                f"              <td>{len(projects)}</td>",
+                "            </tr>",
+            ]
+        )
+    lines.extend(
+        [
+            "          </tbody>",
+            "        </table>",
+            "      </section>",
+            '      <section aria-labelledby="using-indexes">',
+            '        <h2 id="using-indexes">Using an index with uv</h2>',
+            "        <p>Each index provides builds for one compute platform. "
+            f"The following example uses <code>{_escape(example_channel.name)}</code>; "
+            "choose the index that matches your target.</p>",
+            "        <h3>Configure the index</h3>",
+            "        <p>Add the index to <code>pyproject.toml</code> and mark it "
+            "explicit so packages use it only when selected through "
+            "<code>tool.uv.sources</code>.</p>",
+            "        <pre><code>[[tool.uv.index]]\n"
+            f'name = "{_escape(index_name)}"\n'
+            f'url = "{_escape(index_url)}"\n'
+            "explicit = true</code></pre>",
+            "        <h3>Select packages from the index</h3>",
+            "        <p>Route each package that needs a specialized build to the "
+            "configured index:</p>",
+            "        <pre><code>[tool.uv.sources]\n"
+            f'"{_escape(example_project)}" = '
+            f'{{ index = "{_escape(index_name)}" }}</code></pre>',
+            "        <p>Then add or declare the dependency normally. Other "
+            "available packages and versions are listed below.</p>",
+            f"        <pre><code>uv add {_escape(example_requirement)}</code></pre>",
+            "        <h3>The uv pip interface</h3>",
+            "        <p>For environment-oriented workflows, pass the selected "
+            "index directly:</p>",
+            f"        <pre><code>uv pip install --index {_escape(index_url)} "
+            f"{_escape(example_requirement)}</code></pre>",
+            "        <h3>pip</h3>",
+            f"        <pre><code>python -m pip install --extra-index-url "
+            f"{_escape(index_url)} {_escape(example_requirement)}</code></pre>",
+            "        <p>These indexes contain selected builds, not a complete "
+            "PyPI mirror. Pin package versions in automated environments.</p>",
+            "      </section>",
+            '      <section aria-labelledby="package-inventory">',
+            '        <h2 id="package-inventory">Packages and versions</h2>',
+            "        <p>Expand an index to inspect its available packages and "
+            "versions.</p>",
+        ]
+    )
+    for channel in channels:
+        projects = projects_by_channel[channel.name]
+        package_label = "package" if len(projects) == 1 else "packages"
+        lines.extend(
+            [
+                f'        <details id="index-{_escape(channel.name)}">',
+                "          <summary>"
+                f"{_escape(channel.name)} - {_escape(channel.description)} "
+                f"({len(projects)} {package_label})</summary>",
+                "          <table>",
+                "            <thead>",
+                "              <tr>",
+                '                <th scope="col">Package</th>',
+                '                <th scope="col">Versions</th>',
+                "              </tr>",
+                "            </thead>",
+                "            <tbody>",
+            ]
+        )
+        for project in projects:
+            versions = sorted(
+                {artifact.version for artifact in files[(channel.name, project)]},
+                key=lambda value: (Version(value), value),
+                reverse=True,
+            )
+            rendered_versions = ", ".join(
+                f"<code>{_escape(version)}</code>" for version in versions
+            )
+            lines.extend(
+                [
+                    "              <tr>",
+                    "                <td>"
+                    f'<a href="./simple/{_escape(channel.name)}/'
+                    f'{_escape(project)}/">{_escape(project)}</a></td>',
+                    f"                <td>{rendered_versions}</td>",
+                    "              </tr>",
+                ]
+            )
+        lines.extend(
+            [
+                "            </tbody>",
+                "          </table>",
+                "        </details>",
+            ]
+        )
+    lines.extend(
+        [
+            "      </section>",
+            "    </main>",
+            "  </body>",
+            "</html>",
+            "",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def _project_list_html(projects: tuple[str, ...]) -> str:

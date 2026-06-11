@@ -9,8 +9,9 @@ It does six things:
 2. Selects the highest trailing `-rN` revision for each release family.
 3. Validates wheel projects and assigns each wheel to a configured channel.
 4. Mirrors selected wheel bytes and exact core metadata to Cloudflare R2.
-5. Generates deterministic PEP 691 JSON and HTML index documents.
-6. Syncs the generated Simple API documents to Cloudflare R2.
+5. Generates a human-readable package inventory and deterministic PEP 691 JSON
+   and HTML index documents.
+6. Syncs the generated index documents to Cloudflare R2.
 
 It does not build wheels, mirror dependencies, or delete immutable artifact
 history.
@@ -67,6 +68,8 @@ uv run --locked build-index sync-r2
 `dist/` with:
 
 ```text
+index.html
+
 simple/index.html
 simple/<channel>/index.json
 simple/<channel>/<project>/index.json
@@ -78,8 +81,11 @@ simple/v1+html/<channel>/index.html
 simple/v1+html/<channel>/<project>/index.html
 ```
 
-The JSON-default and explicit JSON documents contain the same data. Explicit
-HTML documents support clients that request the HTML representation.
+`index.html` lists each channel, explains how to use it, and provides an
+expandable package and version inventory. It uses only semantic HTML and the
+browser's default stylesheet. The JSON-default and explicit JSON documents
+contain the same data. Explicit HTML documents support clients that request the
+HTML representation.
 
 Every collection is a fresh projection of currently published GitHub
 Releases. An unsuffixed tag is revision zero; `1.0-r2` replaces `1.0` and
@@ -111,8 +117,8 @@ anonymous fallback.
 
 The publication workflow derives its explicit GitHub App repository scope from
 the active configuration, polls those repositories, mirrors admitted artifacts,
-builds the complete Simple API tree, and syncs it to R2. With no configured
-repositories it publishes empty channel indexes.
+builds the complete index tree, and syncs it to R2. With no configured
+repositories it publishes the landing page and empty channel indexes.
 
 R2 publication is enabled when these repository settings are configured:
 
@@ -158,9 +164,9 @@ artifact URLs and advertise PEP 658 metadata using `core-metadata` in JSON and
 `data-core-metadata` in HTML. An incomplete mirror fails before the existing R2
 index is changed.
 
-The workflow then publishes every generated
-`dist/simple/**/index.json` or `index.html` document to the R2 object key for
-its canonical trailing-slash URL:
+The workflow then publishes `dist/index.html` and every generated
+`dist/simple/**/index.json` or `index.html` document to R2. Simple API documents
+use the object key for their canonical trailing-slash URL:
 
 ```text
 dist/simple/cu128/vllm/index.json
@@ -173,10 +179,13 @@ dist/simple/v1+html/cu128/vllm/index.html
 This makes the default JSON and explicit JSON/HTML endpoints work directly
 through an R2 custom domain without Cloudflare URL rewrites. Project documents
 are uploaded before channel roots, and stale objects are deleted only after all
-new objects succeed. The document sync owns the complete `simple/` object
-prefix but never deletes `artifacts/` objects. It uses one pooled boto3 client
-with bounded concurrent uploads and batched stale-object deletion, avoiding a
-new CLI process and TLS connection for every document.
+new objects succeed. The landing page is published as `index.html`; because R2
+does not provide static-website index resolution, the public custom domain must
+rewrite `/` to `/index.html` for the page to render at the root URL. The
+document sync owns the complete `simple/` object prefix but never deletes
+`artifacts/` objects. It uses one pooled boto3 client with bounded concurrent
+uploads and batched stale-object deletion, avoiding a new CLI process and TLS
+connection for every document.
 
 See [PEP 658](https://peps.python.org/pep-0658/) and
 [PEP 714](https://peps.python.org/pep-0714/).

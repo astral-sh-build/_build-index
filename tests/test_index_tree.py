@@ -92,13 +92,14 @@ def example_collection():
     )
 
 
-def test_build_index_tree_generates_simple_api_documents(tmp_path: Path) -> None:
+def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
     output = tmp_path / "dist"
 
     build_index_tree(
         CONFIG,
         output,
         collection=example_collection(),
+        public_base_url="https://packages.example",
     )
 
     root = json.loads((output / "simple" / "cu128" / "index.json").read_text())
@@ -114,6 +115,7 @@ def test_build_index_tree_generates_simple_api_documents(tmp_path: Path) -> None
         output / "simple" / "v1+html" / "cu128" / "index-test-gpu" / "index.html"
     ).read_text()
     root_html = (output / "simple" / "v1+html" / "cu128" / "index.html").read_text()
+    landing_html = (output / "index.html").read_text()
 
     assert root == {
         "meta": {"api-version": "1.4"},
@@ -146,9 +148,34 @@ def test_build_index_tree_generates_simple_api_documents(tmp_path: Path) -> None
     assert "#sha256=" + "b" * 64 in project_html
     assert 'data-core-metadata="sha256=' + "e" * 64 + '"' in project_html
     assert 'data-requires-python="&gt;=3.10"' in project_html
+    assert "<h1>Astral package indexes</h1>" in landing_html
+    assert '<a href="./simple/cu128/">cu128</a>' in landing_html
+    assert "CUDA 12.8 builds" in landing_html
+    assert "Using an index with uv" in landing_html
+    assert "[[tool.uv.index]]" in landing_html
+    assert 'name = "astral-cu128"' in landing_html
+    assert 'url = "https://packages.example/simple/cu128/"' in landing_html
+    assert "explicit = true" in landing_html
+    assert "[tool.uv.sources]" in landing_html
+    assert '"index-test-gpu" = { index = "astral-cu128" }' in landing_html
+    assert "uv add index-test-gpu==0.1.0+cu128" in landing_html
+    assert (
+        "uv pip install --index https://packages.example/simple/cu128/ "
+        "index-test-gpu==0.1.0+cu128" in landing_html
+    )
+    assert (
+        "python -m pip install --extra-index-url "
+        "https://packages.example/simple/cu128/ index-test-gpu==0.1.0+cu128"
+        in landing_html
+    )
+    assert '<details id="index-cu128">' in landing_html
+    assert '<a href="./simple/cu128/index-test-gpu/">index-test-gpu</a>' in landing_html
+    assert "<code>0.1.0+cu128</code>" in landing_html
+    assert "<style" not in landing_html
+    assert "stylesheet" not in landing_html
+    assert "<script" not in landing_html
     assert not (output / "catalog").exists()
     assert not (output / "artifacts").exists()
-    assert not (output / "index.html").exists()
 
 
 def test_build_index_tree_generates_empty_channel_documents(tmp_path: Path) -> None:

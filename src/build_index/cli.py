@@ -11,7 +11,7 @@ from build_index.config import ConfigError, load_config, private_repository_scop
 from build_index.github import GitHubClient, collect_release_assets
 from build_index.index_tree import build_index_tree
 from build_index.mirror import S3ObjectStore, mirror_artifacts
-from build_index.r2_sync import sync_simple_documents
+from build_index.r2_sync import sync_index_documents
 
 DEFAULT_CONFIG = Path("config/index.toml")
 DEFAULT_COLLECTION = Path("build/releases.json")
@@ -88,9 +88,14 @@ def main() -> None:
     build_parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     build_parser.add_argument("--collection", type=Path, default=DEFAULT_COLLECTION)
     build_parser.add_argument("--output", type=Path, default=Path("dist"))
+    build_parser.add_argument(
+        "--public-base-url",
+        default=os.environ.get("R2_PUBLIC_URL"),
+        help="Public base URL used in generated installation instructions.",
+    )
     sync_parser = subparsers.add_parser(
         "sync-r2",
-        help="Sync generated Simple API documents to R2.",
+        help="Sync generated index documents to R2.",
     )
     sync_parser.add_argument("--input", type=Path, default=Path("dist"))
     sync_parser.add_argument(
@@ -194,6 +199,7 @@ def main() -> None:
                 config,
                 args.output,
                 collection=collection,
+                public_base_url=args.public_base_url,
             )
             print(
                 f"built index tree: {len(written)} files, "
@@ -205,7 +211,7 @@ def main() -> None:
                 raise CollectionError("R2 bucket is not set")
             if not args.endpoint:
                 raise CollectionError("R2 endpoint is not set")
-            sync_simple_documents(
+            sync_index_documents(
                 args.input,
                 args.bucket,
                 args.endpoint,
