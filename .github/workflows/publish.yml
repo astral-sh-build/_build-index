@@ -23,13 +23,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
-      contents: write
+      contents: read
     steps:
       - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Set up uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
@@ -76,9 +75,7 @@ jobs:
         run: uv run --locked build-index mirror
 
       - name: Build index tree
-        env:
-          R2_PUBLIC_URL: ${{ vars.R2_PUBLIC_URL }}
-        run: uv run --locked build-index build --base-url "$R2_PUBLIC_URL"
+        run: uv run --locked build-index build
 
       - name: Sync Simple API documents to R2
         env:
@@ -89,30 +86,3 @@ jobs:
           R2_BUCKET: ${{ vars.R2_BUCKET }}
           R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
         run: uv run --locked build-index sync-r2 --input dist
-
-      - name: Prepare pages branch worktree
-        env:
-          PAGES_BRANCH: pages
-        run: |
-          git fetch origin "$PAGES_BRANCH:refs/remotes/origin/$PAGES_BRANCH" || true
-          if git show-ref --verify --quiet "refs/remotes/origin/$PAGES_BRANCH"; then
-            git worktree add --detach ../pages-worktree "origin/$PAGES_BRANCH"
-          else
-            git worktree add -b "$PAGES_BRANCH" ../pages-worktree
-          fi
-
-      - name: Publish pages branch
-        env:
-          PAGES_BRANCH: pages
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          rsync -a --delete --exclude .git dist/ ../pages-worktree/
-          cd ../pages-worktree
-          git add -A
-          if git diff --cached --quiet; then
-            echo "pages branch is already current"
-            exit 0
-          fi
-          git commit -m "Update generated index for $GITHUB_SHA"
-          git push origin "HEAD:$PAGES_BRANCH"

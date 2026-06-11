@@ -24,7 +24,6 @@ from build_index.github import (
 
 ROOT = Path(__file__).parents[1]
 CONFIG = load_config(ROOT / "tests" / "fixtures" / "index.toml")
-PRODUCTION_CONFIG = load_config(ROOT / "config" / "index.toml")
 
 
 class FakeGitHubClient:
@@ -106,7 +105,7 @@ def upstream_vllm_config():
         ),
         has_version_policy=True,
     )
-    return replace(PRODUCTION_CONFIG, repositories=(repository,))
+    return replace(CONFIG, repositories=(repository,))
 
 
 def test_collect_release_assets_assigns_channels_and_ignores_non_wheels() -> None:

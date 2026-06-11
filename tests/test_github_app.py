@@ -21,7 +21,7 @@ from build_index.register_reader_app import (
 ROOT = Path(__file__).parents[1]
 APP_MANIFEST = ROOT / "github-apps" / "reader.manifest.json"
 TOKEN_ACTION = ROOT / "actions" / "create-reader-token" / "action.yml"
-PAGES_WORKFLOW = ROOT / ".github" / "workflows" / "pages.yml"
+PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "publish.yml"
 CREATE_TOKEN_SHA = "bcd2ba49218906704ab6c1aa796996da409d3eb1"
 
 
@@ -60,8 +60,8 @@ def test_reader_token_action_requires_explicit_read_scope() -> None:
     assert action.count("permission-") == 1
 
 
-def test_pages_workflow_uses_reader_token_for_admitted_repositories() -> None:
-    workflow = PAGES_WORKFLOW.read_text(encoding="utf-8")
+def test_publish_workflow_uses_reader_token_for_admitted_repositories() -> None:
+    workflow = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
 
     assert "Resolve private producer scope" in workflow
     assert "uses: ./actions/create-reader-token" in workflow
@@ -78,7 +78,9 @@ def test_pages_workflow_uses_reader_token_for_admitted_repositories() -> None:
     assert "steps.producer-token.outputs.token || github.token" in workflow
     assert "build-index collect" in workflow
     assert "build-index build" in workflow
-    assert "Prepare pages branch worktree" in workflow
+    assert "build-index sync-r2" in workflow
+    assert "contents: write" not in workflow
+    assert "persist-credentials: false" in workflow
     assert "previous-collection" not in workflow
     assert "report-new-files" not in workflow
 

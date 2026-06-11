@@ -21,7 +21,6 @@ normalized in the index; their source URLs and bytes are unchanged.
 
 Each run reads one TOML configuration containing:
 
-- The public base URL.
 - Available channels.
 - GitHub repositories and their admitted projects.
 - Optional release-version and unlabeled-wheel channel policies.
@@ -68,9 +67,6 @@ uv run --locked build-index sync-r2
 `dist/` with:
 
 ```text
-index.html
-.nojekyll
-
 simple/index.html
 simple/<channel>/index.json
 simple/<channel>/<project>/index.json
@@ -113,11 +109,10 @@ anonymously only when GitHub rejects the installation token because the
 repository is outside the App installation; private repositories never use
 anonymous fallback.
 
-The Pages workflow derives its explicit GitHub App repository scope from the
-active configuration, polls those repositories, builds the complete static
-tree, optionally syncs its Simple API documents to R2, and replaces
-the `pages` branch. With no configured repositories it publishes an empty
-index. The branch remains available for review.
+The publication workflow derives its explicit GitHub App repository scope from
+the active configuration, polls those repositories, mirrors admitted artifacts,
+builds the complete Simple API tree, and syncs it to R2. With no configured
+repositories it publishes empty channel indexes.
 
 R2 publication is enabled when these repository settings are configured:
 
@@ -160,8 +155,8 @@ are not deleted when a release leaves the index.
 Only after every selected wheel and metadata sidecar is present does the
 workflow generate index documents. Published project pages contain only R2
 artifact URLs and advertise PEP 658 metadata using `core-metadata` in JSON and
-`data-core-metadata` in HTML. An incomplete mirror fails before either the
-existing R2 index or the Pages branch is changed.
+`data-core-metadata` in HTML. An incomplete mirror fails before the existing R2
+index is changed.
 
 The workflow then publishes every generated
 `dist/simple/**/index.json` or `index.html` document to the R2 object key for
