@@ -1,0 +1,11 @@
+schema_version = 1
+
+# Add entries here when a mirrored artifact must be protected from prune-r2
+# after it leaves the published collection. Each entry protects both:
+# artifacts/<sha256>/<filename>
+# artifacts/<sha256>/<filename>.metadata
+#
+# [[artifact]]
+# sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+# filename = "example-1.0.0-py3-none-any.whl"
+# reason = "Keep temporarily for external migration window."

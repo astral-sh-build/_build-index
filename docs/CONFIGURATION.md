@@ -3,6 +3,8 @@
 `config/index.toml` is the production input to collection and publication. It
 defines which channels may be published, which GitHub repositories are trusted
 as producers, and any release-version policy needed to classify their wheels.
+`config/retain-artifacts.toml` protects explicit mirrored artifact objects from
+the dedicated R2 pruning workflow.
 
 Validate changes before collection:
 
@@ -149,6 +151,26 @@ Some legacy producers published invalid wheel filenames containing repeated
 local-version `+` separators. Those filenames are normalized only for the
 index-facing package filename. Their source URLs and mirrored wheel bytes remain
 unchanged.
+
+## Retained artifacts
+
+`config/retain-artifacts.toml` is a manual hold list for mirrored artifacts
+that should survive `build-index prune-r2` even after they leave the published
+collection. Use it for temporary migration windows or other reviewed retention
+requirements:
+
+```toml
+schema_version = 1
+
+[[artifact]]
+sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+filename = "example-1.0.0-py3-none-any.whl"
+reason = "Keep temporarily for external migration window."
+```
+
+Each entry protects both `artifacts/<sha256>/<filename>` and
+`artifacts/<sha256>/<filename>.metadata`. Retention entries affect pruning
+only; they do not publish a wheel in any Simple API document.
 
 ## Upstream vLLM
 

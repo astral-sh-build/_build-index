@@ -11,10 +11,12 @@ from build_index.config import ConfigError, load_config, private_repository_scop
 from build_index.github import GitHubClient, collect_release_assets
 from build_index.index_tree import build_index_tree
 from build_index.mirror import S3ObjectStore, mirror_artifacts
+from build_index.r2_prune import load_retained_artifacts, prune_stale_artifacts
 from build_index.r2_sync import sync_index_documents
 
 DEFAULT_CONFIG = Path("config/index.toml")
 DEFAULT_COLLECTION = Path("build/releases.json")
+DEFAULT_RETAIN_ARTIFACTS = Path("config/retain-artifacts.toml")
 
 
 def main() -> None:
@@ -27,6 +29,12 @@ def main() -> None:
         "validate-config", help="Validate index configuration."
     )
     validate_parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    validate_parser.add_argument(
+        "--retain-artifacts",
+        type=Path,
+        default=DEFAULT_RETAIN_ARTIFACTS,
+        help="TOML file listing artifacts protected from R2 pruning.",
+    )
 
     collect_parser = subparsers.add_parser(
         "collect", help="Collect wheels from configured GitHub Releases."
@@ -114,14 +122,42 @@ def main() -> None:
         default=os.environ.get("R2_UPLOAD_CONCURRENCY", "16"),
         help="Maximum concurrent document uploads.",
     )
+    prune_parser = subparsers.add_parser(
+        "prune-r2",
+        help="Prune stale mirrored artifact objects from R2.",
+    )
+    prune_parser.add_argument("--collection", type=Path, default=DEFAULT_COLLECTION)
+    prune_parser.add_argument(
+        "--retain-artifacts",
+        type=Path,
+        default=DEFAULT_RETAIN_ARTIFACTS,
+        help="TOML file listing artifacts protected from pruning.",
+    )
+    prune_parser.add_argument(
+        "--bucket",
+        default=os.environ.get("R2_BUCKET"),
+        help="R2 bucket name.",
+    )
+    prune_parser.add_argument(
+        "--endpoint",
+        default=os.environ.get("R2_ENDPOINT"),
+        help="R2 S3 endpoint URL.",
+    )
+    prune_parser.add_argument(
+        "--delete",
+        action="store_true",
+        help="Delete stale artifacts. Without this flag, only log a dry run.",
+    )
 
     args = parser.parse_args()
     try:
         if args.command == "validate-config":
             config = load_config(args.config)
+            retained_artifacts = load_retained_artifacts(args.retain_artifacts)
             print(
                 f"valid configuration: {len(config.channels)} channels, "
-                f"{len(config.repositories)} repositories"
+                f"{len(config.repositories)} repositories, "
+                f"{len(retained_artifacts)} retained artifacts"
             )
         elif args.command == "collect":
             config = load_config(args.config)
@@ -217,6 +253,31 @@ def main() -> None:
                 args.endpoint,
                 upload_workers=args.upload_workers,
                 log=lambda message: print(message, flush=True),
+            )
+        elif args.command == "prune-r2":
+            if not args.bucket:
+                raise CollectionError("R2 bucket is not set")
+            if not args.endpoint:
+                raise CollectionError("R2 endpoint is not set")
+            collection = load_collection(args.collection)
+            retained_artifacts = load_retained_artifacts(args.retain_artifacts)
+            result = prune_stale_artifacts(
+                collection,
+                args.bucket,
+                args.endpoint,
+                delete=args.delete,
+                retained_artifacts=retained_artifacts,
+                log=lambda message: print(message, flush=True),
+            )
+            mode = "delete" if args.delete else "dry-run"
+            print(
+                "pruned R2 artifacts: "
+                f"mode={mode}, "
+                f"desired={result.desired}, "
+                f"retained={result.retained}, "
+                f"existing={result.existing}, "
+                f"stale={result.stale}, "
+                f"deleted={result.deleted}"
             )
     except (CollectionError, ConfigError, ValueError) as error:
         parser.error(str(error))
