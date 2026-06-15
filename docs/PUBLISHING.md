@@ -89,8 +89,25 @@ metadata sidecar are reused by hash and are not re-extracted when policy code
 changes later. Tightening metadata validation therefore affects newly mirrored
 artifacts; revalidating existing objects requires a deliberate audit.
 
-Artifact objects are never deleted automatically when a release leaves the
-index.
+Artifact objects are not deleted by the publication workflow when a release
+leaves the index.
+
+## Artifact pruning
+
+The manual `.github/workflows/prune-r2.yml` workflow removes artifact objects
+that are no longer part of the current collection. It validates the production
+configuration and retained-artifact list, collects the currently admitted
+releases, lists the complete `artifacts/` prefix, and compares existing objects
+against the desired wheel and `.metadata` sidecar keys.
+
+The workflow runs as a dry run by default. Set the `delete` input to `true` to
+delete stale wheel objects and their `.metadata` files. The pruning command
+refuses to run against an empty collection so a failed or misconfigured
+collection step cannot delete every artifact object.
+
+`config/retain-artifacts.toml` can protect specific mirrored artifact keys from
+pruning. Each retained artifact entry protects both the wheel object and its
+`.metadata` sidecar.
 
 ## Generated documents
 
@@ -118,7 +135,8 @@ for example, `dist/simple/cu128/vllm/index.json` becomes
 
 Package-level documents upload before channel and index roots. Stale objects
 under the complete `simple/` prefix are deleted only after all new uploads
-succeed. Document sync never deletes `artifacts/` objects.
+succeed. Document sync never deletes `artifacts/` objects; use the dedicated
+pruning workflow for stale mirrored artifacts.
 
 The landing page uploads as `index.html`. R2 does not provide static-website
 index resolution, so a public custom domain must internally rewrite `/` to
@@ -140,6 +158,15 @@ uv run --locked build-index sync-r2
 `collect` writes `build/releases.json`. `mirror` updates that collection with
 R2 URLs and core metadata. `build` reads the mirrored collection and writes
 `dist/`. `sync-r2` publishes only generated documents.
+
+To audit stale artifact deletion from the same collection, run:
+
+```bash
+uv run --locked build-index prune-r2
+```
+
+`prune-r2` dry-runs stale artifact deletion; pass `--delete` to remove those
+objects.
 
 See [PEP 658](https://peps.python.org/pep-0658/),
 [PEP 691](https://peps.python.org/pep-0691/), and

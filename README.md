@@ -120,8 +120,10 @@ Every package link points to an immutable wheel mirrored into Cloudflare R2.
 Publication preserves producer bytes and records the SHA-256 digest, size,
 upload time, `Requires-Python`, and exact core metadata.
 
-The index does not build wheels, mirror dependencies, rewrite wheel metadata,
-or delete immutable artifact history when a release leaves an index.
+The index does not build wheels, mirror dependencies, or rewrite wheel
+metadata. The publication workflow does not delete artifact history when a
+release leaves an index; stale artifact pruning is an explicit maintainer
+workflow.
 
 ## Maintaining the indexes
 

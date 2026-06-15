@@ -1,0 +1,80 @@
+name: Prune unpublished R2 artifacts
+run-name: Prune unpublished R2 artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      delete:
+        description: Delete stale artifact objects instead of running a dry run.
+        required: true
+        default: false
+        type: boolean
+
+permissions: {}
+
+env:
+  UV_DEFAULT_INDEX: https://pypi.org/simple
+
+concurrency:
+  group: index-publication
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    name: Prune
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: "3.14"
+
+      - name: Sync environment
+        run: uv sync --locked --dev
+
+      - name: Validate configuration
+        run: uv run --locked build-index validate-config
+
+      - name: Resolve private producer scope
+        id: producer-scope
+        run: |
+          uv run --locked build-index reader-token-scope \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Create producer repository token
+        if: steps.producer-scope.outputs.has_private_repositories == 'true'
+        id: producer-token
+        uses: ./actions/create-reader-token
+        with:
+          client-id: ${{ vars.BUILD_INDEX_READER_CLIENT_ID }}
+          private-key: ${{ secrets.BUILD_INDEX_READER_PRIVATE_KEY }}
+          owner: ${{ steps.producer-scope.outputs.owner }}
+          repositories: ${{ steps.producer-scope.outputs.repositories }}
+
+      - name: Collect producer releases
+        env:
+          GH_TOKEN: ${{ steps.producer-token.outputs.token || github.token }}
+        run: uv run --locked build-index collect
+
+      - name: Prune stale artifacts from R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ vars.R2_ACCESS_KEY_ID }}
+          AWS_EC2_METADATA_DISABLED: "true"
+          AWS_REGION: auto
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
+        run: |
+          if [ "${{ inputs.delete }}" = "true" ]; then
+            uv run --locked build-index prune-r2 --delete
+          else
+            uv run --locked build-index prune-r2
+          fi
