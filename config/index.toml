@@ -41,10 +41,6 @@ repository = "astral-sh-build/build-adan"
 projects = ["adan"]
 
 [[repository]]
-repository = "astral-sh-build/build-apex"
-projects = ["apex"]
-
-[[repository]]
 repository = "astral-sh-build/build-causal-conv1d"
 projects = ["causal-conv1d"]
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
@@ -99,10 +95,6 @@ projects = ["megablocks"]
 [[repository]]
 repository = "astral-sh-build/build-mmcv"
 projects = ["mmcv"]
-
-[[repository]]
-repository = "astral-sh-build/build-nvmolkit"
-projects = ["nvmolkit"]
 
 [[repository]]
 repository = "astral-sh-build/build-pycuda"
