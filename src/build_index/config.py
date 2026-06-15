@@ -45,6 +45,7 @@ class RepositoryConfig:
     access: str = "private"
     tag_regex: str = _DEFAULT_TAG_REGEX
     minimum_release_version: Version | None = None
+    maximum_release_version: Version | None = None
     allow_prereleases: bool = False
     ignored_channels: tuple[str, ...] = ()
     allowed_metadata_version_mismatch_tags: tuple[str, ...] = ()
@@ -129,6 +130,7 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
             "access",
             "tag_regex",
             "minimum_release_version",
+            "maximum_release_version",
             "allow_prereleases",
             "ignored_channels",
             "allowed_metadata_version_mismatch_tags",
@@ -171,6 +173,20 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
         if "minimum_release_version" in data
         else None
     )
+    maximum_release_version = (
+        _version(data["maximum_release_version"], f"{context}.maximum_release_version")
+        if "maximum_release_version" in data
+        else None
+    )
+    if (
+        minimum_release_version is not None
+        and maximum_release_version is not None
+        and minimum_release_version > maximum_release_version
+    ):
+        raise ConfigError(
+            f"{context}.minimum_release_version must not be greater than "
+            f"{context}.maximum_release_version"
+        )
 
     allow_prereleases = data.get("allow_prereleases", False)
     if not isinstance(allow_prereleases, bool):
@@ -207,6 +223,7 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
         for key in (
             "tag_regex",
             "minimum_release_version",
+            "maximum_release_version",
             "unlabeled_channel_rules",
         )
     )
@@ -217,6 +234,7 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
         access=access,
         tag_regex=tag_regex,
         minimum_release_version=minimum_release_version,
+        maximum_release_version=maximum_release_version,
         allow_prereleases=allow_prereleases,
         ignored_channels=ignored_channels,
         allowed_metadata_version_mismatch_tags=(allowed_metadata_version_mismatch_tags),

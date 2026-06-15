@@ -97,6 +97,7 @@ def upstream_vllm_config():
         access="public",
         tag_regex=r"^v(?P<version>.+)$",
         minimum_release_version=Version("0.9.1"),
+        maximum_release_version=Version("0.22.0"),
         ignored_channels=("cpu",),
         unlabeled_channel_rules=(
             UnlabeledChannelRule(Version("0.9.1"), Version("0.12.0"), "cu128"),
@@ -423,8 +424,7 @@ def test_collect_release_assets_rejects_malformed_digest() -> None:
         ("v0.12.0", "cu129"),
         ("v0.19.1", "cu129"),
         ("v0.20.0", "cu130"),
-        ("v0.22.1", "cu130"),
-        ("v0.22.1.post1", "cu130"),
+        ("v0.22.0", "cu130"),
     ],
 )
 def test_upstream_vllm_unlabeled_wheels_use_bounded_release_mapping(
@@ -446,23 +446,28 @@ def test_upstream_vllm_unlabeled_wheels_use_bounded_release_mapping(
     assert artifact.release == tag
 
 
-def test_upstream_vllm_rejects_unreviewed_unlabeled_wheel() -> None:
-    filename = "vllm-0.23.0-cp312-cp312-manylinux_2_28_x86_64.whl"
+@pytest.mark.parametrize("version", ["0.22.1", "0.23.0"])
+def test_upstream_vllm_skips_versions_above_owned_release_ceiling(
+    version: str,
+) -> None:
+    filename = f"vllm-{version}-cp312-cp312-manylinux_2_28_x86_64.whl"
     client = FakeGitHubClient(
-        {"vllm-project/vllm": [release([asset(filename)], tag="v0.23.0")]}
+        {"vllm-project/vllm": [release([asset(filename)], tag=f"v{version}")]}
+    )
+    messages: list[str] = []
+
+    collection = collect_release_assets(
+        upstream_vllm_config(), client, log=messages.append
     )
 
-    with pytest.raises(
-        WheelCompatibilityError,
-        match=(
-            "repository=vllm-project/vllm, tag=v0.23.0, "
-            "captured_version=0.23.0, filename=vllm-0.23.0"
-        ),
-    ):
-        collect_release_assets(upstream_vllm_config(), client)
+    assert collection.artifacts == ()
+    assert any(
+        f"excluded release above maximum version: v{version} -> {version}" in message
+        for message in messages
+    )
 
 
-def test_upstream_vllm_explicit_channel_does_not_require_release_mapping() -> None:
+def test_upstream_vllm_maximum_applies_to_explicit_channels() -> None:
     filename = "vllm-0.23.0+cu.13.0.torch.2.11-cp312-cp312-manylinux_2_28_x86_64.whl"
     client = FakeGitHubClient(
         {"vllm-project/vllm": [release([asset(filename)], tag="v0.23.0")]}
@@ -470,9 +475,7 @@ def test_upstream_vllm_explicit_channel_does_not_require_release_mapping() -> No
 
     collection = collect_release_assets(upstream_vllm_config(), client)
 
-    assert [(item.filename, item.channel) for item in collection.artifacts] == [
-        (filename, "cu130")
-    ]
+    assert collection.artifacts == ()
 
 
 def test_upstream_vllm_explicit_cu118_is_authoritative() -> None:

@@ -117,6 +117,49 @@ def test_repository_policy_defaults_to_private_opaque_tags() -> None:
     assert all(repository.allow_prereleases is False for repository in opaque_private)
 
 
+def test_config_accepts_inclusive_release_version_bounds(tmp_path: Path) -> None:
+    path = tmp_path / "index.toml"
+    path.write_text(
+        CONFIG.read_text(encoding="utf-8")
+        + """
+
+[[repository]]
+repository = "example/project"
+projects = ["example"]
+minimum_release_version = "1.0"
+maximum_release_version = "2.0"
+""",
+        encoding="utf-8",
+    )
+
+    repository = load_config(path).repositories[-1]
+
+    assert str(repository.minimum_release_version) == "1.0"
+    assert str(repository.maximum_release_version) == "2.0"
+    assert repository.has_version_policy
+
+
+def test_config_rejects_inverted_release_version_bounds(tmp_path: Path) -> None:
+    path = tmp_path / "index.toml"
+    path.write_text(
+        CONFIG.read_text(encoding="utf-8")
+        + """
+
+[[repository]]
+repository = "example/project"
+projects = ["example"]
+minimum_release_version = "2.0"
+maximum_release_version = "1.0"
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ConfigError, match="minimum_release_version must not be greater"
+    ):
+        load_config(path)
+
+
 @pytest.mark.parametrize(
     ("policy", "message"),
     [
