@@ -58,6 +58,7 @@ Repository settings:
 | `channels` | All configured channels | Optional additional channel restriction |
 | `tag_regex` | `^(?P<version>.+)$` | Extract a policy version from a complete tag |
 | `minimum_release_version` | None | Inclusive lower release-version bound |
+| `maximum_release_version` | None | Inclusive upper release-version bound |
 | `allow_prereleases` | `false` | Admit parsed prerelease versions |
 | `ignored_channels` | Empty | Exclude matching wheel channels |
 | `unlabeled_channel_rules` | Empty | Assign bare wheels in bounded version ranges |
@@ -83,15 +84,17 @@ removes that release family's files from the generated index. If the same
 filename appears in multiple release families, the later-uploaded asset wins.
 
 A repository opts into parsed version policy by configuring `tag_regex`,
-`minimum_release_version`, or `unlabeled_channel_rules`. The regex uses a full
-match and must contain exactly one named `version` capture. The captured value
-is parsed as a Python packaging version.
+`minimum_release_version`, `maximum_release_version`, or
+`unlabeled_channel_rules`. The regex uses a full match and must contain exactly
+one named `version` capture. The captured value is parsed as a Python packaging
+version.
 
 Policy-enabled repositories skip:
 
 - Tags that do not match the configured regex.
 - Invalid captured versions.
 - Versions below `minimum_release_version`.
+- Versions above `maximum_release_version`.
 - GitHub releases marked as prereleases.
 - Parsed alpha, beta, release-candidate, and development versions unless
   `allow_prereleases` is enabled.

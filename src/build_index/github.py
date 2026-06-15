@@ -480,6 +480,12 @@ def _apply_release_version_policy(
         logger(f"  excluded release below minimum version: {tag} -> {captured_version}")
         return None
     if (
+        repository.maximum_release_version is not None
+        and version > repository.maximum_release_version
+    ):
+        logger(f"  excluded release above maximum version: {tag} -> {captured_version}")
+        return None
+    if (
         version.is_prerelease or version.is_devrelease
     ) and not repository.allow_prereleases:
         logger(f"  excluded parsed prerelease: {tag} -> {captured_version}")
