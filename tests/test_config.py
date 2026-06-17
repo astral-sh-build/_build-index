@@ -29,7 +29,9 @@ def test_config_loads_representative_fixture() -> None:
         ("example/build-index-test-cpu", ("index-test-cpu",)),
         ("example/build-index-test-gpu", ("index-test-gpu",)),
         ("example/build-index-test-mixed", ("index-test-mixed",)),
+        ("example/build-flash-attention", ("flash-attn",)),
         ("example/build-grouped-gemm", ("grouped-gemm",)),
+        ("example/build-vllm", ("vllm",)),
     )
 
 
@@ -308,10 +310,12 @@ def test_private_repository_scope_excludes_public_sources() -> None:
 
     assert owner == "example"
     assert repositories == (
+        "build-flash-attention",
         "build-grouped-gemm",
         "build-index-test-cpu",
         "build-index-test-gpu",
         "build-index-test-mixed",
+        "build-vllm",
     )
 
 

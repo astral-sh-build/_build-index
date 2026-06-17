@@ -45,5 +45,13 @@ repository = "example/build-index-test-mixed"
 projects = ["index-test-mixed"]
 
 [[repository]]
+repository = "example/build-flash-attention"
+projects = ["flash-attn"]
+
+[[repository]]
 repository = "example/build-grouped-gemm"
 projects = ["grouped-gemm"]
+
+[[repository]]
+repository = "example/build-vllm"
+projects = ["vllm"]
