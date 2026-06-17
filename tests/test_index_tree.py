@@ -148,32 +148,99 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
     assert "#sha256=" + "b" * 64 in project_html
     assert 'data-core-metadata="sha256=' + "e" * 64 + '"' in project_html
     assert 'data-requires-python="&gt;=3.10"' in project_html
-    assert "<h1>Astral package indexes</h1>" in landing_html
-    assert '<a href="./simple/cu128/">cu128</a>' in landing_html
+    assert "<h1>Astral build indexes</h1>" in landing_html
+    assert '<a class="catalog-name" href="./simple/cu128/">cu128</a>' in landing_html
     assert "CUDA 12.8 builds" in landing_html
     assert "Using an index with uv" in landing_html
+    assert "Add the index" in landing_html
+    assert "Point the package to the index" in landing_html
+    assert "Add the dependency" in landing_html
+    assert "Use <code>explicit = true</code>" in landing_html
+    assert "packages listed in <code>tool.uv.sources</code>" in landing_html
     assert "[[tool.uv.index]]" in landing_html
-    assert 'name = "astral-cu128"' in landing_html
-    assert 'url = "https://packages.example/simple/cu128/"' in landing_html
-    assert "explicit = true" in landing_html
-    assert "[tool.uv.sources]" in landing_html
-    assert '"index-test-gpu" = { index = "astral-cu128" }' in landing_html
-    assert "uv add index-test-gpu==0.1.0+cu128" in landing_html
+    assert '<span class="cmd">name</span> = ' in landing_html
+    assert '<span class="string">&quot;astral-cu128&quot;</span>' in landing_html
+    assert '<span class="cmd">url</span> = ' in landing_html
     assert (
-        "uv pip install --index https://packages.example/simple/cu128/ "
-        "index-test-gpu==0.1.0+cu128" in landing_html
-    )
-    assert (
-        "python -m pip install --extra-index-url "
-        "https://packages.example/simple/cu128/ index-test-gpu==0.1.0+cu128"
+        '<span class="string">&quot;https://packages.example/simple/cu128/&quot;</span>'
         in landing_html
     )
+    assert '<span class="cmd">explicit</span> = true' in landing_html
+    assert "[tool.uv.sources]" in landing_html
+    assert '<span class="cmd">&quot;index-test-gpu&quot;</span> = ' in landing_html
+    assert "  { index = &quot;astral-cu128&quot; }," in landing_html
+    assert "]</code></pre>" in landing_html
+    assert '<span class="cmd">uv</span> add index-test-gpu==0.1.0+cu128' in landing_html
+    assert '<span class="cmd">uv</span> pip install ' in landing_html
+    assert '<span class="flag">--index-url</span>' in landing_html
+    assert (
+        '<span class="cmd">python</span> '
+        '<span class="flag">-m</span> pip install ' in landing_html
+    )
+    assert '<span class="flag">--extra-index-url</span>' in landing_html
+    assert "keep PyPI available" in landing_html
+    assert (
+        '<span class="url">https://packages.example/simple/cu128/</span>'
+        in landing_html
+    )
+    assert "index-test-gpu==0.1.0+cu128" in landing_html
+    assert "\\\n    index-test-gpu==0.1.0+cu128" in landing_html
     assert '<details id="index-cu128">' in landing_html
-    assert '<a href="./simple/cu128/index-test-gpu/">index-test-gpu</a>' in landing_html
-    assert "<code>0.1.0+cu128</code>" in landing_html
-    assert "<style" not in landing_html
+    assert (
+        '<a class="catalog-name project-name" '
+        'href="./simple/cu128/index-test-gpu/">index-test-gpu</a>' in landing_html
+    )
+    assert '<span class="cmd">0.1.0+cu128</span>' in landing_html
+    assert "No packages currently published for this channel." in landing_html
+    assert "<style" in landing_html
     assert "stylesheet" not in landing_html
-    assert "<script" not in landing_html
+    assert "<script" in landing_html
+    assert 'aria-label="Made by Astral"' in landing_html
+    assert '<svg width="139" height="24"' in landing_html
+    assert ".astral svg { height: 1.5rem; }" in landing_html
+    assert "copyCode" in landing_html
+    assert landing_html.count('onclick="copyCode(this)"') == 5
+    assert (
+        '<div class="channel-chooser" role="group" aria-label="Select channel">'
+        in landing_html
+    )
+    assert 'data-channel="cpu" aria-pressed="false"' in landing_html
+    assert 'data-channel="cu128" aria-pressed="true"' in landing_html
+    assert '<span class="channel-label">CPU</span>' in landing_html
+    assert '<span class="channel-meta">cpu / 2 packages</span>' in landing_html
+    assert '<span class="channel-label">CUDA 12.8</span>' in landing_html
+    assert '<span class="channel-meta">cu128 / 2 packages</span>' in landing_html
+    assert 'data-snippet="index-config"' in landing_html
+    assert 'data-snippet="source-config"' in landing_html
+    assert 'data-snippet="uv-add"' in landing_html
+    assert 'data-snippet="uv-pip"' in landing_html
+    assert 'data-snippet="pip"' in landing_html
+    assert "setChannel(btn.dataset.channel)" in landing_html
+    channel_data_prefix = '<script id="channel-example-data" type="application/json">'
+    channel_data_start = landing_html.index(channel_data_prefix) + len(
+        channel_data_prefix
+    )
+    channel_data_end = landing_html.index("</script>", channel_data_start)
+    channel_examples = json.loads(landing_html[channel_data_start:channel_data_end])
+    assert channel_examples["cpu"]["has_packages"] is True
+    assert "astral-cpu" in channel_examples["cpu"]["snippets"]["index_config"]
+    assert (
+        "https://packages.example/simple/cpu/"
+        in channel_examples["cpu"]["snippets"]["index_config"]
+    )
+    assert "index-test-cpu==0.1.0+cpu" in channel_examples["cpu"]["snippets"]["uv_add"]
+    assert "--index-url" in channel_examples["cpu"]["snippets"]["uv_pip"]
+    assert "--extra-index-url" in channel_examples["cpu"]["snippets"]["pip"]
+    assert (
+        "  { index = &quot;astral-cpu&quot; },"
+        in channel_examples["cpu"]["snippets"]["source_config"]
+    )
+    assert channel_examples["cu118"]["has_packages"] is False
+    assert "PACKAGE==VERSION" in channel_examples["cu118"]["snippets"]["uv_add"]
+    assert (
+        "package-specific examples use placeholders"
+        in channel_examples["cu118"]["note"]
+    )
     assert not (output / "catalog").exists()
     assert not (output / "artifacts").exists()
 
