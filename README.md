@@ -15,7 +15,7 @@ Choose the index matching the target compute platform. Index URLs have this
 form:
 
 ```text
-https://wheels.astralhosted.com/simple/<channel>/
+https://wheels.astral.sh/simple/<channel>/
 ```
 
 The [index landing page][index] lists the enabled channels and the current
@@ -27,7 +27,7 @@ packages and versions in each one. Common channel names include `cpu`, `cu128`,
 The default root for each channel serves the PEP 691 v1 JSON representation:
 
 ```text
-https://wheels.astralhosted.com/simple/cu128/
+https://wheels.astral.sh/simple/cu128/
 Content-Type: application/vnd.pypi.simple.v1+json
 ```
 
@@ -64,7 +64,7 @@ vllm = { index = "astral-cu128" }
 
 [[tool.uv.index]]
 name = "astral-cu128"
-url = "https://wheels.astralhosted.com/simple/cu128/"
+url = "https://wheels.astral.sh/simple/cu128/"
 explicit = true
 ```
 
@@ -84,7 +84,7 @@ it.
 For environment-oriented workflows, select an index once and pass it to uv:
 
 ```bash
-INDEX_URL=https://wheels.astralhosted.com/simple/cu128/
+INDEX_URL=https://wheels.astral.sh/simple/cu128/
 uv pip install --index "$INDEX_URL" vllm
 ```
 
@@ -93,7 +93,7 @@ uv pip install --index "$INDEX_URL" vllm
 Keep PyPI available for dependencies by adding the selected index:
 
 ```bash
-INDEX_URL=https://wheels.astralhosted.com/simple/cu128/
+INDEX_URL=https://wheels.astral.sh/simple/cu128/
 python -m pip install --extra-index-url "$INDEX_URL" vllm
 ```
 
@@ -109,7 +109,7 @@ both indexes.
 Add the selected index as an explicit source, then assign packages to it:
 
 ```bash
-INDEX_URL=https://wheels.astralhosted.com/simple/cu128/
+INDEX_URL=https://wheels.astral.sh/simple/cu128/
 poetry source add --priority=explicit astral-cu128 "$INDEX_URL"
 poetry add --source astral-cu128 vllm
 ```
@@ -161,5 +161,5 @@ uv run --locked zizmor .
 
 Licensed under the [Apache License, Version 2.0](LICENSE).
 
-[index]: https://wheels.astralhosted.com/index.html
+[index]: https://wheels.astral.sh/index.html
 [pep-691-endpoint]: https://peps.python.org/pep-0691/#endpoint-configuration
