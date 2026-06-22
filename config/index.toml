@@ -39,23 +39,28 @@ description = "CUDA 13.0 builds"
 [[repository]]
 repository = "astral-sh-build/build-adan"
 projects = ["adan"]
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-causal-conv1d"
 projects = ["causal-conv1d"]
+access = "public"
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
 
 [[repository]]
 repository = "astral-sh-build/build-deepep"
 projects = ["deep-ep"]
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-deepgemm"
 projects = ["deep-gemm"]
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-deepspeed"
 projects = ["deepspeed"]
+access = "public"
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
 # These tags encode a commit hash in wheel metadata while their filenames
 # encode CUDA/Torch compatibility. Preserve and publish the original bytes,
@@ -70,61 +75,75 @@ allowed_metadata_version_mismatch_tags = [
 [[repository]]
 repository = "astral-sh-build/build-detectron2"
 projects = ["detectron2"]
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-flash-attention"
 projects = ["flash-attn"]
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-flash-attention-3"
 projects = ["flash-attn-3"]
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-grouped-gemm"
 projects = ["grouped-gemm"]
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-mamba"
 projects = ["mamba-ssm"]
+access = "public"
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
 
 [[repository]]
 repository = "astral-sh-build/build-megablocks"
 projects = ["megablocks"]
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-mmcv"
 projects = ["mmcv"]
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-pycuda"
 projects = ["pycuda"]
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-pytorch-scatter"
 projects = ["torch-scatter"]
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-pytorch3d"
 projects = ["pytorch3d"]
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-sageattention"
 projects = ["sageattention"]
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-sageattention3"
 projects = ["sageattn3"]
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-transformer-engine-torch"
 projects = ["transformer-engine-torch"]
+access = "public"
 
 # Keep the two vLLM sources together. Astral builds remain authoritative for
 # CPU wheels; upstream CPU wheels are ignored below to avoid duplicate sources.
 [[repository]]
 repository = "astral-sh-build/build-vllm"
 projects = ["vllm"]
+access = "public"
 
 # Upstream releases are imported from the first version with GitHub-provided
 # asset digests. Do not import a version until the Astral source above can
