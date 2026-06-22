@@ -88,6 +88,33 @@ def example_collection():
                 sha256="d" * 64,
                 size=5004,
             ),
+            artifact(
+                "example/build-flash-attention",
+                "flash_attn-2.8.3+cu128-py3-none-any.whl",
+                "flash-attn",
+                "2.8.3+cu128",
+                "cu128",
+                sha256="f" * 64,
+                size=5005,
+            ),
+            artifact(
+                "example/build-vllm",
+                "vllm-0.22.0+cpu-py3-none-any.whl",
+                "vllm",
+                "0.22.0+cpu",
+                "cpu",
+                sha256="0" * 64,
+                size=5006,
+            ),
+            artifact(
+                "example/build-vllm",
+                "vllm-0.22.0+cu128-py3-none-any.whl",
+                "vllm",
+                "0.22.0+cu128",
+                "cu128",
+                sha256="1" * 64,
+                size=5007,
+            ),
         ]
     )
 
@@ -120,8 +147,10 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
     assert root == {
         "meta": {"api-version": "1.4"},
         "projects": [
+            {"name": "flash-attn"},
             {"name": "index-test-gpu"},
             {"name": "index-test-mixed"},
+            {"name": "vllm"},
         ],
     }
     assert project == explicit_project
@@ -167,10 +196,10 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
     )
     assert '<span class="cmd">explicit</span> = true' in landing_html
     assert "[tool.uv.sources]" in landing_html
-    assert '<span class="cmd">&quot;index-test-gpu&quot;</span> = ' in landing_html
+    assert '<span class="cmd">&quot;flash-attn&quot;</span> = ' in landing_html
     assert "  { index = &quot;astral-cu128&quot; }," in landing_html
     assert "]</code></pre>" in landing_html
-    assert '<span class="cmd">uv</span> add index-test-gpu==0.1.0+cu128' in landing_html
+    assert '<span class="cmd">uv</span> add flash-attn==2.8.3+cu128' in landing_html
     assert '<span class="cmd">uv</span> pip install ' in landing_html
     assert '<span class="flag">--index-url</span>' in landing_html
     assert (
@@ -183,8 +212,8 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
         '<span class="url">https://packages.example/simple/cu128/</span>'
         in landing_html
     )
-    assert "index-test-gpu==0.1.0+cu128" in landing_html
-    assert "\\\n    index-test-gpu==0.1.0+cu128" in landing_html
+    assert "flash-attn==2.8.3+cu128" in landing_html
+    assert "\\\n    flash-attn==2.8.3+cu128" in landing_html
     assert '<details id="index-cu128">' in landing_html
     assert (
         '<a class="catalog-name project-name" '
@@ -207,9 +236,9 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
     assert 'data-channel="cpu" aria-pressed="false"' in landing_html
     assert 'data-channel="cu128" aria-pressed="true"' in landing_html
     assert '<span class="channel-label">CPU</span>' in landing_html
-    assert '<span class="channel-meta">cpu / 2 packages</span>' in landing_html
+    assert '<span class="channel-meta">cpu / 3 packages</span>' in landing_html
     assert '<span class="channel-label">CUDA 12.8</span>' in landing_html
-    assert '<span class="channel-meta">cu128 / 2 packages</span>' in landing_html
+    assert '<span class="channel-meta">cu128 / 4 packages</span>' in landing_html
     assert 'data-snippet="index-config"' in landing_html
     assert 'data-snippet="source-config"' in landing_html
     assert 'data-snippet="uv-add"' in landing_html
@@ -228,7 +257,8 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
         "https://packages.example/simple/cpu/"
         in channel_examples["cpu"]["snippets"]["index_config"]
     )
-    assert "index-test-cpu==0.1.0+cpu" in channel_examples["cpu"]["snippets"]["uv_add"]
+    assert "vllm==0.22.0+cpu" in channel_examples["cpu"]["snippets"]["uv_add"]
+    assert "flash-attn==2.8.3+cu128" in channel_examples["cu128"]["snippets"]["uv_add"]
     assert "--index-url" in channel_examples["cpu"]["snippets"]["uv_pip"]
     assert "--extra-index-url" in channel_examples["cpu"]["snippets"]["pip"]
     assert (
