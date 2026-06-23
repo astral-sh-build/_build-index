@@ -81,8 +81,11 @@ object metadata records the wheel hash, metadata hash, and normalized
 for the admission rules and filename exception.
 
 Each run checks existing objects with bounded parallel `head-object` requests.
-Missing artifacts upload serially and deterministically. This makes an
-interrupted run resumable without a separate database.
+Missing artifacts are then downloaded, validated, and uploaded by four workers
+by default. Set `MIRROR_CONCURRENCY` or pass `mirror --workers` to tune that
+limit. Each worker uses its own temporary directory and releases the wheel after
+upload, while result records retain collection order. An interrupted run remains
+resumable without a separate database.
 
 Metadata policy is an ingestion decision. A complete existing wheel and
 metadata sidecar are reused by hash and are not re-extracted when policy code

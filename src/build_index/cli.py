@@ -90,6 +90,12 @@ def main() -> None:
         default=os.environ.get("R2_ENDPOINT"),
         help="R2 S3 endpoint URL.",
     )
+    mirror_parser.add_argument(
+        "--workers",
+        type=_positive_integer,
+        default=os.environ.get("MIRROR_CONCURRENCY", "4"),
+        help="Maximum concurrent artifact mirrors.",
+    )
     build_parser = subparsers.add_parser(
         "build", help="Build static JSON and HTML Simple API documents."
     )
@@ -221,6 +227,7 @@ def main() -> None:
                     args.endpoint,
                 ),
                 public_base_url=args.public_base_url,
+                workers=args.workers,
                 log=lambda message: print(message, flush=True),
             )
             write_collection(args.output, mirrored)

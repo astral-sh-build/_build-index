@@ -29,6 +29,7 @@ class FakeDownloader:
     def __init__(self, source: Path) -> None:
         self.source = source
         self.calls = 0
+        self.lock = threading.Lock()
 
     def download_asset(
         self,
@@ -39,16 +40,21 @@ class FakeDownloader:
         access: str = "private",
         log=None,
     ) -> tuple[str, int]:
-        self.calls += 1
+        with self.lock:
+            self.calls += 1
         shutil.copyfile(self.source, destination)
         contents = destination.read_bytes()
         return hashlib.sha256(contents).hexdigest(), len(contents)
 
 
-class CleanupCheckingDownloader(FakeDownloader):
+class ConcurrentDownloader(FakeDownloader):
     def __init__(self, source: Path) -> None:
         super().__init__(source)
-        self.previous_directory: Path | None = None
+        self.active = 0
+        self.maximum_active = 0
+        self.overlap = threading.Event()
+        self.activity_lock = threading.Lock()
+        self.directories: list[Path] = []
 
     def download_asset(
         self,
@@ -59,25 +65,35 @@ class CleanupCheckingDownloader(FakeDownloader):
         access: str = "private",
         log=None,
     ) -> tuple[str, int]:
-        if self.previous_directory is not None:
-            assert not self.previous_directory.exists()
-        self.previous_directory = destination.parent
-        return super().download_asset(
-            asset_api_url,
-            destination,
-            repository=repository,
-            access=access,
-            log=log,
-        )
+        with self.activity_lock:
+            self.directories.append(destination.parent)
+            self.active += 1
+            self.maximum_active = max(self.maximum_active, self.active)
+            if self.active > 1:
+                self.overlap.set()
+        self.overlap.wait(timeout=1)
+        try:
+            return super().download_asset(
+                asset_api_url,
+                destination,
+                repository=repository,
+                access=access,
+                log=log,
+            )
+        finally:
+            with self.activity_lock:
+                self.active -= 1
 
 
 class FakeStore:
     def __init__(self) -> None:
         self.objects: dict[str, tuple[bytes, dict[str, str], str]] = {}
         self.puts: list[str] = []
+        self.lock = threading.Lock()
 
     def head(self, key: str) -> ObjectInfo | None:
-        value = self.objects.get(key)
+        with self.lock:
+            value = self.objects.get(key)
         if value is None:
             return None
         contents, metadata, _content_type = value
@@ -91,8 +107,10 @@ class FakeStore:
         content_type: str,
         metadata: dict[str, str],
     ) -> None:
-        self.puts.append(key)
-        self.objects[key] = (source.read_bytes(), metadata, content_type)
+        contents = source.read_bytes()
+        with self.lock:
+            self.puts.append(key)
+            self.objects[key] = (contents, metadata, content_type)
 
 
 class ConcurrentHeadStore(FakeStore):
@@ -101,10 +119,10 @@ class ConcurrentHeadStore(FakeStore):
         self.active = 0
         self.maximum_active = 0
         self.overlap = threading.Event()
-        self.lock = threading.Lock()
+        self.activity_lock = threading.Lock()
 
     def head(self, key: str) -> ObjectInfo | None:
-        with self.lock:
+        with self.activity_lock:
             self.active += 1
             self.maximum_active = max(self.maximum_active, self.active)
             if self.active > 1:
@@ -113,7 +131,7 @@ class ConcurrentHeadStore(FakeStore):
         try:
             return super().head(key)
         finally:
-            with self.lock:
+            with self.activity_lock:
                 self.active -= 1
 
 
@@ -333,7 +351,7 @@ def test_mirror_finishes_parallel_preflight_before_writes(tmp_path: Path) -> Non
     assert store.puts == []
 
 
-def test_mirror_cleans_up_each_download_before_starting_the_next(
+def test_mirror_processes_missing_artifacts_concurrently_and_preserves_order(
     tmp_path: Path,
 ) -> None:
     wheel = tmp_path / FILENAME
@@ -341,29 +359,59 @@ def test_mirror_cleans_up_each_download_before_starting_the_next(
         wheel,
         b"Metadata-Version: 2.4\nName: grouped-gemm\nVersion: 0.1.0\n\n",
     )
-    artifacts = (
-        base,
+    artifacts = tuple(
         replace(
             base,
-            filename="grouped_gemm-0.1.0+cu129-py3-none-any.whl",
-            version="0.1.0+cu129",
-            channel="cu129",
-            download_url="https://api.github.com/releases/assets/2",
-        ),
+            filename=f"grouped_gemm-0.1.0+cu{128 + index}-py3-none-any.whl",
+            version=f"0.1.0+cu{128 + index}",
+            channel=f"cu{128 + index}",
+            download_url=f"https://api.github.com/releases/assets/{index}",
+        )
+        for index in range(4)
     )
-    downloader = CleanupCheckingDownloader(wheel)
+    collection = collection_from_artifacts(artifacts)
+    downloader = ConcurrentDownloader(wheel)
+    store = FakeStore()
+    messages: list[str] = []
 
-    mirror_artifacts(
+    mirrored = mirror_artifacts(
         CONFIG,
-        collection_from_artifacts(artifacts),
+        collection,
         downloader,
-        FakeStore(),
+        store,
         public_base_url="https://packages.example",
+        workers=2,
+        log=messages.append,
     )
 
-    assert downloader.calls == 2
-    assert downloader.previous_directory is not None
-    assert not downloader.previous_directory.exists()
+    assert downloader.overlap.is_set()
+    assert downloader.maximum_active == 2
+    assert downloader.calls == 4
+    assert len(set(downloader.directories)) == 4
+    assert all(not directory.exists() for directory in downloader.directories)
+    assert [artifact.filename for artifact in mirrored.artifacts] == [
+        artifact.filename for artifact in collection.artifacts
+    ]
+    assert set(store.puts) == {
+        key
+        for artifact in collection.artifacts
+        for key in (artifact_key(artifact), f"{artifact_key(artifact)}.metadata")
+    }
+    assert "mirroring missing artifacts: artifacts=4, workers=2" in messages
+
+
+def test_mirror_rejects_non_positive_workers(tmp_path: Path) -> None:
+    wheel = tmp_path / FILENAME
+
+    with pytest.raises(MirrorError, match="workers must be a positive integer"):
+        mirror_artifacts(
+            CONFIG,
+            collection_from_artifacts([make_wheel(wheel)]),
+            FakeDownloader(wheel),
+            FakeStore(),
+            public_base_url="https://packages.example",
+            workers=0,
+        )
 
 
 def test_mirror_rejects_wheel_with_wrong_digest(tmp_path: Path) -> None:
