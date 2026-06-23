@@ -27,10 +27,11 @@ from build_index.collection import (
     collection_from_artifacts,
     parse_collected_wheel_filename,
 )
-from build_index.config import IndexConfig
+from build_index.config import IndexConfig, RepositoryConfig
 from build_index.r2 import S3Client, create_s3_client
 
 _ARTIFACT_CACHE_CONTROL = "public, max-age=31536000, immutable"
+_DEFAULT_MIRROR_WORKERS = 4
 _MAX_HEAD_WORKERS = 16
 _MAX_METADATA_SIZE = 10 * 1024 * 1024
 _OBJECT_FORMAT_VERSION = "1"
@@ -165,9 +166,12 @@ def mirror_artifacts(
     store: ObjectStore,
     *,
     public_base_url: str,
+    workers: int = _DEFAULT_MIRROR_WORKERS,
     log: Callable[[str], None] | None = None,
 ) -> ReleaseCollection:
     """Mirror every collected wheel and return publication-ready records."""
+    if workers < 1:
+        raise MirrorError("mirror workers must be a positive integer")
     logger = log or (lambda _message: None)
     base_url = _validate_public_base_url(public_base_url)
     mirrored: list[CollectedArtifact] = []
@@ -182,10 +186,10 @@ def mirror_artifacts(
         repositories.append(repository)
 
     if collection.artifacts:
-        workers = min(_MAX_HEAD_WORKERS, len(collection.artifacts))
+        head_workers = min(_MAX_HEAD_WORKERS, len(collection.artifacts))
         logger(
             f"checking existing mirror state: artifacts={len(collection.artifacts)}, "
-            f"workers={workers}"
+            f"workers={head_workers}"
         )
     existing_metadata = _existing_metadata_for_artifacts(
         store,
@@ -193,96 +197,128 @@ def mirror_artifacts(
     )
 
     total = len(collection.artifacts)
-    for index, (artifact, repository, existing) in enumerate(
-        zip(
-            collection.artifacts,
-            repositories,
-            existing_metadata,
-            strict=True,
-        )
+    for index, (artifact, existing) in enumerate(
+        zip(collection.artifacts, existing_metadata, strict=True)
     ):
-        key = artifact_key(artifact)
-        published_url = artifact_url(base_url, key)
         logger(f"checking artifact {index + 1}/{total}: {artifact.filename}")
         if existing is not None:
-            metadata_sha256, requires_python = existing
             logger(f"already mirrored: {artifact.filename}")
-        else:
-            with tempfile.TemporaryDirectory(prefix="build-index-mirror-") as temporary:
-                directory = Path(temporary)
-                wheel = directory / "artifact.whl"
-                logger(f"downloading source artifact: {artifact.filename}")
-                sha256, size = downloader.download_asset(
-                    artifact.download_url,
-                    wheel,
-                    repository=artifact.repository,
-                    access=repository.access,
-                    log=logger,
-                )
-                if sha256 != artifact.sha256:
-                    raise MirrorError(
-                        f"downloaded wheel SHA-256 does not match collection: "
-                        f"{artifact.filename}"
-                    )
-                if size != artifact.size:
-                    raise MirrorError(
-                        f"downloaded wheel size does not match collection: "
-                        f"{artifact.filename}"
-                    )
 
-                core_metadata = extract_core_metadata(
-                    wheel,
-                    artifact,
-                    allow_version_mismatch=(
-                        artifact.release
-                        in repository.allowed_metadata_version_mismatch_tags
-                    ),
+    missing_indexes = [
+        index for index, existing in enumerate(existing_metadata) if existing is None
+    ]
+    mirrored_metadata: dict[int, tuple[str, str | None]] = {}
+    if missing_indexes:
+        mirror_workers = min(workers, len(missing_indexes))
+        logger(
+            f"mirroring missing artifacts: artifacts={len(missing_indexes)}, "
+            f"workers={mirror_workers}"
+        )
+        with ThreadPoolExecutor(
+            max_workers=mirror_workers,
+            thread_name_prefix="artifact-mirror",
+        ) as executor:
+            futures = {
+                index: executor.submit(
+                    _mirror_artifact,
+                    collection.artifacts[index],
+                    repositories[index],
+                    downloader,
+                    store,
+                    logger,
                 )
-                if core_metadata.version_mismatch:
-                    logger(
-                        "tolerated configured wheel metadata Version mismatch: "
-                        f"{artifact.repository}@{artifact.release} "
-                        f"({artifact.filename})"
-                    )
-                metadata_path = directory / "artifact.metadata"
-                metadata_path.write_bytes(core_metadata.contents)
+                for index in missing_indexes
+            }
+            mirrored_metadata = {
+                index: future.result() for index, future in futures.items()
+            }
 
-                store.put(
-                    key,
-                    wheel,
-                    content_type="application/octet-stream",
-                    metadata={
-                        "format-version": _OBJECT_FORMAT_VERSION,
-                        "sha256": artifact.sha256,
-                    },
-                )
-                sidecar_metadata = {
-                    "format-version": _OBJECT_FORMAT_VERSION,
-                    "sha256": core_metadata.sha256,
-                    "wheel-sha256": artifact.sha256,
-                }
-                if core_metadata.requires_python is not None:
-                    sidecar_metadata["requires-python"] = core_metadata.requires_python
-                store.put(
-                    f"{key}.metadata",
-                    metadata_path,
-                    content_type="application/octet-stream",
-                    metadata=sidecar_metadata,
-                )
-                metadata_sha256 = core_metadata.sha256
-                requires_python = core_metadata.requires_python
-            logger(f"mirrored artifact and metadata: {artifact.filename}")
-
+    for index, (artifact, existing) in enumerate(
+        zip(collection.artifacts, existing_metadata, strict=True)
+    ):
+        metadata_sha256, requires_python = (
+            existing if existing is not None else mirrored_metadata[index]
+        )
         mirrored.append(
             replace(
                 artifact,
-                published_url=published_url,
+                published_url=artifact_url(base_url, artifact_key(artifact)),
                 metadata_sha256=metadata_sha256,
                 requires_python=requires_python,
             )
         )
 
     return collection_from_artifacts(mirrored)
+
+
+def _mirror_artifact(
+    artifact: CollectedArtifact,
+    repository: RepositoryConfig,
+    downloader: ArtifactDownloader,
+    store: ObjectStore,
+    logger: Callable[[str], None],
+) -> tuple[str, str | None]:
+    key = artifact_key(artifact)
+    with tempfile.TemporaryDirectory(prefix="build-index-mirror-") as temporary:
+        directory = Path(temporary)
+        wheel = directory / "artifact.whl"
+        logger(f"downloading source artifact: {artifact.filename}")
+        sha256, size = downloader.download_asset(
+            artifact.download_url,
+            wheel,
+            repository=artifact.repository,
+            access=repository.access,
+            log=logger,
+        )
+        if sha256 != artifact.sha256:
+            raise MirrorError(
+                f"downloaded wheel SHA-256 does not match collection: "
+                f"{artifact.filename}"
+            )
+        if size != artifact.size:
+            raise MirrorError(
+                f"downloaded wheel size does not match collection: {artifact.filename}"
+            )
+
+        core_metadata = extract_core_metadata(
+            wheel,
+            artifact,
+            allow_version_mismatch=(
+                artifact.release in repository.allowed_metadata_version_mismatch_tags
+            ),
+        )
+        if core_metadata.version_mismatch:
+            logger(
+                "tolerated configured wheel metadata Version mismatch: "
+                f"{artifact.repository}@{artifact.release} ({artifact.filename})"
+            )
+        metadata_path = directory / "artifact.metadata"
+        metadata_path.write_bytes(core_metadata.contents)
+
+        store.put(
+            key,
+            wheel,
+            content_type="application/octet-stream",
+            metadata={
+                "format-version": _OBJECT_FORMAT_VERSION,
+                "sha256": artifact.sha256,
+            },
+        )
+        sidecar_metadata = {
+            "format-version": _OBJECT_FORMAT_VERSION,
+            "sha256": core_metadata.sha256,
+            "wheel-sha256": artifact.sha256,
+        }
+        if core_metadata.requires_python is not None:
+            sidecar_metadata["requires-python"] = core_metadata.requires_python
+        store.put(
+            f"{key}.metadata",
+            metadata_path,
+            content_type="application/octet-stream",
+            metadata=sidecar_metadata,
+        )
+    logger(f"mirrored artifact and metadata: {artifact.filename}")
+    return core_metadata.sha256, core_metadata.requires_python
 
 
 def artifact_key(artifact: CollectedArtifact) -> str:
