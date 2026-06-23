@@ -34,6 +34,10 @@ description = "CUDA 12.9 builds"
 name = "cu130"
 description = "CUDA 13.0 builds"
 
+[[channel]]
+name = "cu132"
+description = "CUDA 13.2 builds"
+
 # Repository entries admit a producer and its projects. Channels are inferred
 # from each wheel and checked against the global channel list above.
 [[repository]]
