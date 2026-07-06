@@ -165,5 +165,5 @@ ignored_channels = ["cpu"]
 unlabeled_channel_rules = [
   { from = "0.9.1", before = "0.12.0", channel = "cu128" },
   { from = "0.12.0", before = "0.20.0", channel = "cu129" },
-  { from = "0.20.0", before = "0.23.0", channel = "cu130" },
+  { from = "0.20.0", before = "0.25.0", channel = "cu130" },
 ]
