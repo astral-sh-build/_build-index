@@ -159,7 +159,7 @@ projects = ["vllm"]
 access = "public"
 tag_regex = "^v(?P<version>.+)$"
 minimum_release_version = "0.9.1"
-maximum_release_version = "0.22.0"
+maximum_release_version = "0.24.0"
 ignored_channels = ["cpu"]
 
 unlabeled_channel_rules = [
