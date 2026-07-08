@@ -44,11 +44,16 @@ A repository entry admits one GitHub repository and an explicit project list:
 ```toml
 [[repository]]
 repository = "astral-sh-build/build-vllm"
+pretty_name = "vLLM"
 projects = ["vllm"]
 ```
 
 Project names are normalized according to Python package naming rules. A wheel
 whose project is not admitted by its repository is excluded.
+
+Setting `pretty_name` adds the repository to the package list on the index
+landing page, using the configured label and a link to its GitHub repository.
+Secondary sources for the same project can omit it to avoid duplicate entries.
 
 Repository settings:
 
@@ -56,6 +61,7 @@ Repository settings:
 | --- | --- | --- |
 | `repository` | Required | GitHub repository in `owner/name` form |
 | `projects` | Required | Projects admitted from release assets |
+| `pretty_name` | None | Human-readable label for the landing-page package list |
 | `access` | `"private"` | Whether public anonymous fallback is permitted |
 | `channels` | All configured channels | Optional additional channel restriction |
 | `tag_regex` | `^(?P<version>.+)$` | Extract a policy version from a complete tag |

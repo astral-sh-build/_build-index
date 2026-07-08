@@ -288,28 +288,14 @@
 
   <p class="intro">Following the PyTorch convention, the Astral GPU indexes use a separate index URL for each supported CUDA version (e.g., <a href="./simple/cu128/"><code>/simple/cu128</code></a>), and publish a separate wheel version for each supported CUDA and PyTorch combination (e.g., <code>+cu.12.8.torch.2.11</code>).</p>
 
+{% if repositories %}
   <p class="intro">At present, the Astral GPU indexes include builds for the following packages:</p>
   <ul class="package-list">
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-adan" target="_blank" rel="noopener noreferrer">Adan</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-causal-conv1d" target="_blank" rel="noopener noreferrer">causal-conv1d</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-deepep" target="_blank" rel="noopener noreferrer">DeepEP</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-deepgemm" target="_blank" rel="noopener noreferrer">DeepGEMM</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-deepspeed" target="_blank" rel="noopener noreferrer">DeepSpeed</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-detectron2" target="_blank" rel="noopener noreferrer">Detectron2</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-flash-attention" target="_blank" rel="noopener noreferrer">Flash Attention</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-flash-attention-3" target="_blank" rel="noopener noreferrer">Flash Attention 3</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-grouped-gemm" target="_blank" rel="noopener noreferrer">Grouped GEMM</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-mamba" target="_blank" rel="noopener noreferrer">Mamba SSM</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-megablocks" target="_blank" rel="noopener noreferrer">MegaBlocks</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-mmcv" target="_blank" rel="noopener noreferrer">MMCV</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-pycuda" target="_blank" rel="noopener noreferrer">PyCUDA</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-pytorch-scatter" target="_blank" rel="noopener noreferrer">PyTorch Scatter</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-pytorch3d" target="_blank" rel="noopener noreferrer">PyTorch3D</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-sageattention" target="_blank" rel="noopener noreferrer">SageAttention2++</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-sageattention3" target="_blank" rel="noopener noreferrer">SageAttention3</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-transformer-engine-torch" target="_blank" rel="noopener noreferrer">TransformerEngine</a></li>
-    <li><a class="package-link" href="https://github.com/astral-sh-build/build-vllm" target="_blank" rel="noopener noreferrer">vLLM</a></li>
+{% for repository in repositories %}
+    <li><a class="package-link" href="https://github.com/{{ repository.repository }}" target="_blank" rel="noopener noreferrer">{{ repository.pretty_name }}</a></li>
+{% endfor %}
   </ul>
+{% endif %}
 
   <h2 id="available-indexes">Available indexes</h2>
   <div class="channel-chooser" role="group" aria-label="Select channel">

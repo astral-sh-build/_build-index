@@ -256,18 +256,26 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
         '<p class="intro">At present, the Astral GPU indexes include builds for '
         "the following packages:</p>" in landing_html
     )
-    assert landing_html.count('class="package-link"') == 19
-    assert (
-        'href="https://github.com/astral-sh-build/build-flash-attention" '
-        'target="_blank" rel="noopener noreferrer">Flash Attention</a>' in landing_html
+    assert landing_html.count('class="package-link"') == 3
+    flash_attention_link = (
+        'href="https://github.com/example/build-flash-attention" '
+        'target="_blank" rel="noopener noreferrer">Flash Attention</a>'
     )
-    assert (
-        'href="https://github.com/astral-sh-build/build-sageattention" '
-        'target="_blank" rel="noopener noreferrer">SageAttention2++</a>' in landing_html
+    grouped_gemm_link = (
+        'href="https://github.com/example/build-grouped-gemm" '
+        'target="_blank" rel="noopener noreferrer">Grouped GEMM</a>'
     )
+    vllm_link = (
+        'href="https://github.com/example/build-vllm" target="_blank" '
+        'rel="noopener noreferrer">vLLM</a>'
+    )
+    assert flash_attention_link in landing_html
+    assert grouped_gemm_link in landing_html
+    assert vllm_link in landing_html
     assert (
-        'href="https://github.com/astral-sh-build/build-vllm" target="_blank" '
-        'rel="noopener noreferrer">vLLM</a>' in landing_html
+        landing_html.index(flash_attention_link)
+        < landing_html.index(grouped_gemm_link)
+        < landing_html.index(vllm_link)
     )
     assert "index-test-cpu</a>" not in landing_html
     assert "<details" not in landing_html
