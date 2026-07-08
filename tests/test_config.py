@@ -23,15 +23,15 @@ def test_config_loads_representative_fixture() -> None:
         "cu130",
     )
     assert tuple(
-        (repository.repository, repository.projects)
+        (repository.repository, repository.projects, repository.pretty_name)
         for repository in config.repositories
     ) == (
-        ("example/build-index-test-cpu", ("index-test-cpu",)),
-        ("example/build-index-test-gpu", ("index-test-gpu",)),
-        ("example/build-index-test-mixed", ("index-test-mixed",)),
-        ("example/build-flash-attention", ("flash-attn",)),
-        ("example/build-grouped-gemm", ("grouped-gemm",)),
-        ("example/build-vllm", ("vllm",)),
+        ("example/build-index-test-cpu", ("index-test-cpu",), None),
+        ("example/build-index-test-gpu", ("index-test-gpu",), None),
+        ("example/build-index-test-mixed", ("index-test-mixed",), None),
+        ("example/build-flash-attention", ("flash-attn",), "Flash Attention"),
+        ("example/build-grouped-gemm", ("grouped-gemm",), "Grouped GEMM"),
+        ("example/build-vllm", ("vllm",), "vLLM"),
     )
 
 
@@ -101,6 +101,28 @@ projects = ["Example_Package"]
     )
 
     with pytest.raises(ConfigError, match="non-normalized name"):
+        load_config(path)
+
+
+@pytest.mark.parametrize("value", ["42", '"   "'])
+def test_config_rejects_invalid_repository_pretty_name(
+    tmp_path: Path,
+    value: str,
+) -> None:
+    path = tmp_path / "index.toml"
+    path.write_text(
+        CONFIG.read_text(encoding="utf-8")
+        + f"""
+
+[[repository]]
+repository = "example/project"
+pretty_name = {value}
+projects = ["example"]
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="pretty_name must be a non-empty string"):
         load_config(path)
 
 

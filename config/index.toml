@@ -42,27 +42,32 @@ description = "CUDA 13.2 builds"
 # from each wheel and checked against the global channel list above.
 [[repository]]
 repository = "astral-sh-build/build-adan"
+pretty_name = "Adan"
 projects = ["adan"]
 access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-causal-conv1d"
+pretty_name = "causal-conv1d"
 projects = ["causal-conv1d"]
 access = "public"
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
 
 [[repository]]
 repository = "astral-sh-build/build-deepep"
+pretty_name = "DeepEP"
 projects = ["deep-ep"]
 access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-deepgemm"
+pretty_name = "DeepGEMM"
 projects = ["deep-gemm"]
 access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-deepspeed"
+pretty_name = "DeepSpeed"
 projects = ["deepspeed"]
 access = "public"
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
@@ -78,67 +83,80 @@ allowed_metadata_version_mismatch_tags = [
 
 [[repository]]
 repository = "astral-sh-build/build-detectron2"
+pretty_name = "Detectron2"
 projects = ["detectron2"]
 access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-flash-attention"
+pretty_name = "Flash Attention"
 projects = ["flash-attn"]
 access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-flash-attention-3"
+pretty_name = "Flash Attention 3"
 projects = ["flash-attn-3"]
 access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-grouped-gemm"
+pretty_name = "Grouped GEMM"
 projects = ["grouped-gemm"]
 access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-mamba"
+pretty_name = "Mamba SSM"
 projects = ["mamba-ssm"]
 access = "public"
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
 
 [[repository]]
 repository = "astral-sh-build/build-megablocks"
+pretty_name = "MegaBlocks"
 projects = ["megablocks"]
 access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-mmcv"
+pretty_name = "MMCV"
 projects = ["mmcv"]
 access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-pycuda"
+pretty_name = "PyCUDA"
 projects = ["pycuda"]
 access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-pytorch-scatter"
+pretty_name = "PyTorch Scatter"
 projects = ["torch-scatter"]
 access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-pytorch3d"
+pretty_name = "PyTorch3D"
 projects = ["pytorch3d"]
 access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-sageattention"
+pretty_name = "SageAttention2++"
 projects = ["sageattention"]
 access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-sageattention3"
+pretty_name = "SageAttention3"
 projects = ["sageattn3"]
 access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-transformer-engine-torch"
+pretty_name = "TransformerEngine"
 projects = ["transformer-engine-torch"]
 access = "public"
 
@@ -146,6 +164,7 @@ access = "public"
 # CPU wheels; upstream CPU wheels are ignored below to avoid duplicate sources.
 [[repository]]
 repository = "astral-sh-build/build-vllm"
+pretty_name = "vLLM"
 projects = ["vllm"]
 access = "public"
 

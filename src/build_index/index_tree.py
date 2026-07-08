@@ -13,7 +13,7 @@ from jinja2 import Environment, PackageLoader
 from packaging.version import Version
 
 from build_index.collection import CollectedArtifact, CollectionError, ReleaseCollection
-from build_index.config import ChannelConfig, IndexConfig
+from build_index.config import ChannelConfig, IndexConfig, RepositoryConfig
 
 
 def build_index_tree(
@@ -45,6 +45,7 @@ def build_index_tree(
                 config.channels,
                 projects_by_channel,
                 files,
+                repositories=config.repositories,
                 public_base_url=public_base_url,
             ),
         )
@@ -211,6 +212,7 @@ def _index_landing_html(
     projects_by_channel: dict[str, tuple[str, ...]],
     files: dict[tuple[str, str], list[CollectedArtifact]],
     *,
+    repositories: tuple[RepositoryConfig, ...],
     public_base_url: str | None,
 ) -> str:
     populated_channels = tuple(
@@ -240,6 +242,11 @@ def _index_landing_html(
             selected=example_channel.name,
         ),
         example=channel_examples[example_channel.name],
+        repositories=tuple(
+            repository
+            for repository in repositories
+            if repository.pretty_name is not None
+        ),
     )
 
 

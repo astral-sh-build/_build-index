@@ -51,6 +51,7 @@ class RepositoryConfig:
     allowed_metadata_version_mismatch_tags: tuple[str, ...] = ()
     unlabeled_channel_rules: tuple[UnlabeledChannelRule, ...] = ()
     has_version_policy: bool = False
+    pretty_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -126,6 +127,7 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
         {
             "repository",
             "projects",
+            "pretty_name",
             "channels",
             "access",
             "tag_regex",
@@ -143,6 +145,11 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
         raise ConfigError(f"{context}.repository must use 'owner/name'")
 
     projects = _string_tuple(data, "projects", context)
+    pretty_name = data.get("pretty_name")
+    if pretty_name is not None and (
+        not isinstance(pretty_name, str) or not pretty_name.strip()
+    ):
+        raise ConfigError(f"{context}.pretty_name must be a non-empty string")
     channels = _string_tuple(data, "channels", context) if "channels" in data else None
     if not projects:
         raise ConfigError(f"{context}.projects must not be empty")
@@ -230,6 +237,7 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
     return RepositoryConfig(
         repository=repository,
         projects=projects,
+        pretty_name=pretty_name,
         channels=channels,
         access=access,
         tag_regex=tag_regex,
