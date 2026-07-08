@@ -32,7 +32,7 @@ def create_s3_client(endpoint: str, *, max_pool_connections: int) -> S3Client:
             max_pool_connections=max_pool_connections,
             request_checksum_calculation="when_required",
             response_checksum_validation="when_required",
-            retries={"mode": "standard", "total_max_attempts": 4},
+            retries={"mode": "standard", "total_max_attempts": 8},
             s3={"addressing_style": "path"},
             signature_version="s3v4",
             tcp_keepalive=True,
