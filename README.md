@@ -1,8 +1,13 @@
-# Astral build indexes
+# Astral GPU indexes
 
-Astral build indexes provide pre-built Python wheels for selected projects,
-organized by compute platform. They implement the standard Python Simple API
-and work with uv, pip, Poetry, and other Python package installers.
+The Astral GPU indexes provide pre-built wheels for popular GPU-enabled
+packages in the PyTorch ecosystem across supported Python versions, CPU
+architectures, CUDA versions, and PyTorch versions. Following the PyTorch
+convention, each supported CUDA version has a separate index URL and each
+supported CUDA and PyTorch combination has a separate wheel version.
+
+The indexes implement the standard Python Simple API and work with uv, pip,
+Poetry, and other Python package installers.
 
 [Browse the available indexes, packages, and versions][index]
 
@@ -19,8 +24,8 @@ https://wheels.astral.sh/simple/<channel>/
 ```
 
 The [index landing page][index] lists the enabled channels and the current
-packages and versions in each one. Common channel names include `cpu`, `cu128`,
-`cu129`, and `cu130`.
+packages and versions in each one. Common channel names include `cpu`, `cu126`,
+`cu128`, `cu129`, and `cu130`.
 
 ### Response formats
 
@@ -47,45 +52,24 @@ roots can be used as the index URL in the examples below.
 
 ### uv projects
 
-For a uv project, define the selected index in `pyproject.toml` and mark it
-explicit. This keeps unrelated dependencies on the default index while routing
-only the named packages to the Astral index.
-
-For example, to install vLLM from the CUDA 12.8 index:
-
-```toml
-[project]
-dependencies = [
-  "vllm",
-]
-
-[tool.uv.sources]
-vllm = { index = "astral-cu128" }
-
-[[tool.uv.index]]
-name = "astral-cu128"
-url = "https://wheels.astral.sh/simple/cu128/"
-explicit = true
-```
-
-Then lock and install normally:
+Use `uv add` to pin a package to the selected Astral GPU index. For example, to
+install vLLM from the CUDA 12.8 index:
 
 ```bash
-uv lock
-uv sync
+uv add vllm --index astral-cu128=https://wheels.astral.sh/simple/cu128/
 ```
 
 Replace `vllm` and `cu128` with a package and channel shown on the landing
-page. Pin a version in `[project].dependencies` when reproducibility requires
-it.
+page. Add an exact package version when reproducibility requires it.
 
 ### uv pip
 
-For environment-oriented workflows, select an index once and pass it to uv:
+For environment-oriented workflows, add the selected Astral GPU index at
+install time:
 
 ```bash
-INDEX_URL=https://wheels.astral.sh/simple/cu128/
-uv pip install --index "$INDEX_URL" vllm
+uv pip install vllm \
+    --index astral-cu128=https://wheels.astral.sh/simple/cu128/
 ```
 
 ### pip
@@ -161,5 +145,5 @@ uv run --locked zizmor .
 
 Licensed under the [Apache License, Version 2.0](LICENSE).
 
-[index]: https://wheels.astral.sh/index.html
+[index]: https://wheels.astral.sh/
 [pep-691-endpoint]: https://peps.python.org/pep-0691/#endpoint-configuration
