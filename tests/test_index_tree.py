@@ -187,8 +187,15 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
     assert 'data-core-metadata="sha256=' + "e" * 64 + '"' in project_html
     assert 'data-requires-python="&gt;=3.10"' in project_html
     assert "<h1>Astral GPU indexes</h1>" in landing_html
-    assert '<a class="catalog-name" href="./simple/cu128/">cu128</a>' in landing_html
-    assert "CUDA 12.8 builds" in landing_html
+    assert '<h2 id="available-indexes">Available indexes</h2>' in landing_html
+    assert "And for the following compute platforms:" not in landing_html
+    assert 'class="index-link"' not in landing_html
+    assert (
+        'class="terminal"'
+        not in landing_html.split('<h2 id="available-indexes">', maxsplit=1)[1].split(
+            '<h2 id="using-indexes">', maxsplit=1
+        )[0]
+    )
     assert "Using an index with uv" in landing_html
     assert (
         '<span class="cmd">uv</span> add flash-attn==2.8.3+cu126 '
@@ -221,28 +228,16 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
     )
     assert "flash-attn==2.8.3+cu126" in landing_html
     assert "\\\n    flash-attn==2.8.3+cu126" in landing_html
-    assert '<h2 id="packages">Packages</h2>' in landing_html
     assert (
-        "The Astral GPU indexes include builds for the following packages:"
-        in landing_html
+        'href="https://github.com/astral-sh-build" target="_blank" '
+        'rel="noopener noreferrer">open source</a> build pipelines.' in landing_html
     )
-    assert (
-        '<a href="https://github.com/example/build-flash-attention" '
-        'target="_blank" rel="noopener noreferrer"><code>flash-attn</code></a>'
-        in landing_html
-    )
-    assert (
-        '<a href="https://github.com/example/build-vllm" target="_blank" '
-        'rel="noopener noreferrer"><code>vllm</code></a>' in landing_html
-    )
-    assert "<details" not in landing_html
-    assert '<span class="package-panel-title" data-inventory-title>' in landing_html
     assert '<h2 id="package-inventory">Manifest</h2>' in landing_html
     assert (
-        "Select an index above to browse its available packages and versions."
-        in landing_html
+        '<p class="example-note" data-manifest-note>Package versions available '
+        "in the CUDA 12.6 index.</p>" in landing_html
     )
-    assert ">CUDA 12.6</span>" in landing_html
+    assert '<span class="package-panel-title" data-inventory-title>' in landing_html
     assert (
         '<span class="package-panel-count" data-inventory-count>1 package</span>'
         in landing_html
@@ -253,8 +248,33 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
         in landing_html
     )
     assert '<span class="cmd">2.8.3+cu126</span>' in landing_html
+    assert "Supported projects" not in landing_html
+    assert landing_html.index("At present") < landing_html.index(
+        'id="available-indexes"'
+    )
+    assert (
+        '<p class="intro">At present, the Astral GPU indexes include builds for '
+        "the following packages:</p>" in landing_html
+    )
+    assert landing_html.count('class="package-link"') == 19
+    assert (
+        'href="https://github.com/astral-sh-build/build-flash-attention" '
+        'target="_blank" rel="noopener noreferrer">Flash Attention</a>' in landing_html
+    )
+    assert (
+        'href="https://github.com/astral-sh-build/build-sageattention" '
+        'target="_blank" rel="noopener noreferrer">SageAttention2++</a>' in landing_html
+    )
+    assert (
+        'href="https://github.com/astral-sh-build/build-vllm" target="_blank" '
+        'rel="noopener noreferrer">vLLM</a>' in landing_html
+    )
+    assert "index-test-cpu</a>" not in landing_html
+    assert "<details" not in landing_html
     assert "<style" in landing_html
     assert "stylesheet" not in landing_html
+    assert "min-width: 0;" in landing_html
+    assert "width: 100%;" in landing_html
     assert "<script" in landing_html
     assert 'aria-label="Made by Astral"' in landing_html
     assert '<svg width="139" height="24"' in landing_html
@@ -267,6 +287,9 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
     assert (
         '<div class="channel-chooser" role="group" aria-label="Select channel">'
         in landing_html
+    )
+    assert landing_html.index('class="channel-chooser"') < landing_html.index(
+        'id="using-indexes"'
     )
     assert 'data-channel="cpu" aria-pressed="false"' in landing_html
     assert 'data-channel="cu126" aria-pressed="true"' in landing_html
@@ -307,6 +330,14 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
     assert "Astral CPU index" in channel_examples["cpu"]["pip_note"]
     assert "Astral GPU index" in channel_examples["cu126"]["pip_note"]
     assert channel_examples["cpu"]["inventory_title"] == "CPU"
+    assert (
+        channel_examples["cpu"]["manifest_note"]
+        == "Package versions available in the CPU index."
+    )
+    assert (
+        channel_examples["cu128"]["manifest_note"]
+        == "Package versions available in the CUDA 12.8 index."
+    )
     assert channel_examples["cpu"]["inventory_count"] == "3 packages"
     assert "./simple/cpu/vllm/" in channel_examples["cpu"]["inventory_html"]
     assert "0.22.0+cpu" in channel_examples["cpu"]["inventory_html"]

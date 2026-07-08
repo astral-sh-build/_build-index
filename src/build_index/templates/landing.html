@@ -81,15 +81,8 @@
     p { color: #e0e0e0; }
     .intro + .intro { margin-top: 1rem; }
     .example-note { color: #888; margin: 0.25rem 0 0.5rem; }
-    .package-catalog {
-      display: grid;
-      gap: 0.25rem 1rem;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      list-style: none;
-      margin: 0.75rem 0;
-    }
-    .package-catalog li { min-width: 0; }
-    .package-catalog a { display: block; overflow-wrap: anywhere; }
+    .package-list { margin: 0.5rem 0 0; padding-left: 1.5rem; }
+    .package-list li { padding-left: 0.25rem; }
     .channel-chooser {
       display: grid;
       gap: 0.5rem;
@@ -139,7 +132,9 @@
       border: 1px solid #2a2a2a;
       border-radius: 8px;
       margin: 0.5rem 0;
+      min-width: 0;
       overflow: hidden;
+      width: 100%;
     }
     .terminal-header {
       background: #1e1e1e;
@@ -186,16 +181,6 @@
     .pipe { color: #f8f8f2; font-weight: bold; }
     .string { color: #f1fa8c; }
     .comment { color: #6272a4; font-style: italic; }
-    .catalog-name {
-      display: inline-block;
-      min-width: 5.25rem;
-    }
-    .catalog-description {
-      display: inline-block;
-      min-width: 13rem;
-      color: #e0e0e0;
-    }
-    .catalog-count { color: #888; }
     a { color: #D7FF64; text-decoration: none; }
     a:hover { text-decoration: underline; }
     .package-panel {
@@ -226,10 +211,7 @@
     .package-row:first-child { border-top: 0; }
     .package-name { overflow-wrap: anywhere; }
     .package-versions { text-align: right; }
-    .empty-state {
-      color: #888;
-      padding: 1rem;
-    }
+    .empty-state { color: #888; padding: 1rem; }
     .footer { margin-top: 3rem; color: #666; font-size: 0.875rem; }
     .footer a { color: #888; }
     .footer a:hover { color: #D7FF64; }
@@ -238,13 +220,11 @@
     .astral a:hover { opacity: 0.7; }
     .astral svg { height: 1.5rem; }
     @media (max-width: 520px) {
-      .package-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .channel-chooser { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .package-row { gap: 0.2rem; grid-template-columns: minmax(0, 1fr); }
       .package-versions { text-align: left; }
     }
     @media (max-width: 340px) {
-      .package-catalog { grid-template-columns: minmax(0, 1fr); }
       .channel-chooser { grid-template-columns: minmax(0, 1fr); }
     }
     @media (prefers-color-scheme: light) {
@@ -287,8 +267,6 @@
       .pipe { color: #222; }
       .string { color: #b58900; }
       .comment { color: #93a1a1; }
-      .catalog-description { color: #222; }
-      .catalog-count { color: #666; }
       a { color: #6340AC; }
       .package-panel { border-color: #e0e0e0; }
       .package-panel-header { background: #ececec; border-color: #e0e0e0; }
@@ -306,26 +284,34 @@
   <h1>Astral GPU indexes</h1>
   <p class="tagline">Pre-built, GPU-enabled wheels for the Python ecosystem.</p>
 
-  <p class="intro">Pre-built wheels for popular GPU-enabled packages in the PyTorch ecosystem, like <a href="https://github.com/Dao-AILab/flash-attention" target="_blank" rel="noopener noreferrer">FlashAttention</a> and <a href="https://github.com/state-spaces/mamba" target="_blank" rel="noopener noreferrer"><code>mamba-ssm</code></a>, across a wide range of supported Python versions, CPU architectures, CUDA versions, and PyTorch versions.</p>
+  <p class="intro">Pre-built wheels for popular GPU-enabled packages in the PyTorch ecosystem, like <a href="https://github.com/Dao-AILab/flash-attention" target="_blank" rel="noopener noreferrer">FlashAttention</a>, across a range of Python versions, CPU architectures, CUDA versions, and PyTorch versions, based on <a href="https://github.com/astral-sh-build" target="_blank" rel="noopener noreferrer">open source</a> build pipelines.</p>
 
-  <p class="intro">Following the PyTorch convention, the Astral GPU indexes use a separate index URL for each supported CUDA version, such as <a href="./simple/cu128/"><code>/simple/cu128/</code></a>, and publish a separate wheel version for each supported CUDA and PyTorch combination, such as <code>+cu.12.8.torch.2.11</code>.</p>
+  <p class="intro">Following the PyTorch convention, the Astral GPU indexes use a separate index URL for each supported CUDA version (e.g., <a href="./simple/cu128/"><code>/simple/cu128</code></a>), and publish a separate wheel version for each supported CUDA and PyTorch combination (e.g., <code>+cu.12.8.torch.2.11</code>).</p>
 
-  <h2 id="packages">Packages</h2>
-  <p>The Astral GPU indexes include builds for the following packages:</p>
-  <ul class="package-catalog">
-{% for package in build_packages %}
-    <li><a href="{{ package.url }}" target="_blank" rel="noopener noreferrer"><code>{{ package.name }}</code></a></li>
-{% endfor %}
+  <p class="intro">At present, the Astral GPU indexes include builds for the following packages:</p>
+  <ul class="package-list">
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-adan" target="_blank" rel="noopener noreferrer">Adan</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-causal-conv1d" target="_blank" rel="noopener noreferrer">causal-conv1d</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-deepep" target="_blank" rel="noopener noreferrer">DeepEP</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-deepgemm" target="_blank" rel="noopener noreferrer">DeepGEMM</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-deepspeed" target="_blank" rel="noopener noreferrer">DeepSpeed</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-detectron2" target="_blank" rel="noopener noreferrer">Detectron2</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-flash-attention" target="_blank" rel="noopener noreferrer">Flash Attention</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-flash-attention-3" target="_blank" rel="noopener noreferrer">Flash Attention 3</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-grouped-gemm" target="_blank" rel="noopener noreferrer">Grouped GEMM</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-mamba" target="_blank" rel="noopener noreferrer">Mamba SSM</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-megablocks" target="_blank" rel="noopener noreferrer">MegaBlocks</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-mmcv" target="_blank" rel="noopener noreferrer">MMCV</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-pycuda" target="_blank" rel="noopener noreferrer">PyCUDA</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-pytorch-scatter" target="_blank" rel="noopener noreferrer">PyTorch Scatter</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-pytorch3d" target="_blank" rel="noopener noreferrer">PyTorch3D</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-sageattention" target="_blank" rel="noopener noreferrer">SageAttention2++</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-sageattention3" target="_blank" rel="noopener noreferrer">SageAttention3</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-transformer-engine-torch" target="_blank" rel="noopener noreferrer">TransformerEngine</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-vllm" target="_blank" rel="noopener noreferrer">vLLM</a></li>
   </ul>
 
   <h2 id="available-indexes">Available indexes</h2>
-{% call terminal(copy=False) %}
-{% for channel in channels %}
-<a class="catalog-name" href="./simple/{{ channel.name }}/">{{ channel.name }}</a><span class="catalog-description">{{ channel.description }}</span><span class="catalog-count">{{ channel.count }} {{ channel.package_label }}</span>{{ "\n" if not loop.last else "" -}}
-{% endfor %}
-{% endcall %}
-  <h2 id="using-indexes">Using an index with uv</h2>
-  <p class="example-note" data-uv-add-note>{{ example.uv_add_note|safe }}</p>
   <div class="channel-chooser" role="group" aria-label="Select channel">
 {% for channel in channels %}
     <button type="button" class="channel-option" data-channel="{{ channel.name }}" aria-pressed="{{ 'true' if channel.selected else 'false' }}">
@@ -334,6 +320,9 @@
     </button>
 {% endfor %}
   </div>
+
+  <h2 id="using-indexes">Using an index with uv</h2>
+  <p class="example-note" data-uv-add-note>{{ example.uv_add_note|safe }}</p>
 {% call terminal(snippet="uv-add") %}{{ example.snippets.uv_add|safe }}{% endcall %}
 
   <h2>The uv pip interface</h2>
@@ -345,7 +334,7 @@
 {% call terminal(snippet="pip") %}{{ example.snippets.pip|safe }}{% endcall %}
 
   <h2 id="package-inventory">Manifest</h2>
-  <p class="example-note">Select an index above to browse its available packages and versions.</p>
+  <p class="example-note" data-manifest-note>{{ example.manifest_note }}</p>
   <div class="package-panel">
     <div class="package-panel-header">
       <span class="package-panel-title" data-inventory-title>{{ example.inventory_title }}</span>
@@ -353,6 +342,7 @@
     </div>
     <div data-inventory-list>{{ example.inventory_html|safe }}</div>
   </div>
+
   <div class="astral">
     <a href="https://astral.sh" target="_blank" rel="noopener noreferrer" aria-label="Made by Astral">
       <svg width="139" height="24" viewBox="0 0 139 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -399,6 +389,8 @@
         example.uv_pip_note;
       document.querySelector('[data-pip-note]').innerHTML =
         example.pip_note;
+      document.querySelector('[data-manifest-note]').textContent =
+        example.manifest_note;
       document.querySelector('[data-inventory-title]').textContent =
         example.inventory_title;
       document.querySelector('[data-inventory-count]').textContent =
