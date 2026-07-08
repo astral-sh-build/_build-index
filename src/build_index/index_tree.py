@@ -237,7 +237,6 @@ def _index_landing_html(
         channels=_landing_channels(
             channels,
             projects_by_channel,
-            files,
             selected=example_channel.name,
         ),
         example=channel_examples[example_channel.name],
@@ -257,7 +256,6 @@ def _landing_template():
 def _landing_channels(
     channels: tuple[ChannelConfig, ...],
     projects_by_channel: dict[str, tuple[str, ...]],
-    files: dict[tuple[str, str], list[CollectedArtifact]],
     *,
     selected: str,
 ) -> list[dict[str, Any]]:
@@ -265,19 +263,6 @@ def _landing_channels(
     for channel in channels:
         projects = projects_by_channel[channel.name]
         package_label = "package" if len(projects) == 1 else "packages"
-        rendered_projects = []
-        for project in projects:
-            versions = sorted(
-                {artifact.version for artifact in files[(channel.name, project)]},
-                key=lambda value: (Version(value), value),
-                reverse=True,
-            )
-            rendered_projects.append(
-                {
-                    "name": project,
-                    "versions": versions,
-                }
-            )
         result.append(
             {
                 "count": len(projects),
@@ -285,7 +270,6 @@ def _landing_channels(
                 "display_name": _channel_display_name(channel),
                 "name": channel.name,
                 "package_label": package_label,
-                "projects": rendered_projects,
                 "selected": channel.name == selected,
             }
         )
@@ -329,6 +313,11 @@ def _channel_example(
     return {
         "channel": channel.name,
         "has_packages": bool(projects),
+        "inventory_count": (
+            f"{len(projects)} {'package' if len(projects) == 1 else 'packages'}"
+        ),
+        "inventory_html": _package_inventory_html(channel, projects, files),
+        "inventory_title": _channel_display_name(channel),
         "project": project,
         "uv_add_note": (
             f"Use <code>uv add</code> to pin a package to the Astral "
@@ -349,6 +338,34 @@ def _channel_example(
         },
         "version": version,
     }
+
+
+def _package_inventory_html(
+    channel: ChannelConfig,
+    projects: tuple[str, ...],
+    files: dict[tuple[str, str], list[CollectedArtifact]],
+) -> str:
+    if not projects:
+        return '<p class="empty-state">No packages currently published.</p>'
+
+    rows = []
+    for project in projects:
+        versions = sorted(
+            {artifact.version for artifact in files[(channel.name, project)]},
+            key=lambda value: (Version(value), value),
+            reverse=True,
+        )
+        rendered_versions = ", ".join(
+            f'<span class="cmd">{_escape(version)}</span>' for version in versions
+        )
+        rows.append(
+            '<div class="package-row">'
+            f'<a class="package-name" href="./simple/{_escape(channel.name)}/'
+            f'{_escape(project)}/">{_escape(project)}</a>'
+            f'<span class="package-versions">{rendered_versions}</span>'
+            "</div>"
+        )
+    return "\n".join(rows)
 
 
 def _channel_display_name(channel: ChannelConfig) -> str:

@@ -221,19 +221,29 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
     )
     assert "flash-attn==2.8.3+cu126" in landing_html
     assert "\\\n    flash-attn==2.8.3+cu126" in landing_html
-    assert '<details id="index-cu128">' in landing_html
+    assert "<details" not in landing_html
+    assert '<span class="package-panel-title" data-inventory-title>' in landing_html
+    assert '<h2 id="package-inventory">Manifest</h2>' in landing_html
+    assert ">CUDA 12.6</span>" in landing_html
     assert (
-        '<a class="catalog-name project-name" '
-        'href="./simple/cu128/index-test-gpu/">index-test-gpu</a>' in landing_html
+        '<span class="package-panel-count" data-inventory-count>1 package</span>'
+        in landing_html
     )
-    assert '<span class="cmd">0.1.0+cu128</span>' in landing_html
-    assert "No packages currently published for this channel." in landing_html
+    assert '<div class="package-row">' in landing_html
+    assert (
+        '<a class="package-name" href="./simple/cu126/flash-attn/">flash-attn</a>'
+        in landing_html
+    )
+    assert '<span class="cmd">2.8.3+cu126</span>' in landing_html
     assert "<style" in landing_html
     assert "stylesheet" not in landing_html
     assert "<script" in landing_html
     assert 'aria-label="Made by Astral"' in landing_html
     assert '<svg width="139" height="24"' in landing_html
     assert ".astral svg { height: 1.5rem; }" in landing_html
+    assert '<link rel="canonical" href="https://wheels.astral.sh/">' in landing_html
+    assert "https://astral.sh/static/favicon-32x32.png" in landing_html
+    assert '<meta property="og:title" content="Astral GPU indexes">' in landing_html
     assert "copyCode" in landing_html
     assert landing_html.count('onclick="copyCode(this)"') == 3
     assert (
@@ -278,6 +288,15 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
     assert "Astral GPU index" in channel_examples["cu126"]["uv_add_note"]
     assert "Astral CPU index" in channel_examples["cpu"]["pip_note"]
     assert "Astral GPU index" in channel_examples["cu126"]["pip_note"]
+    assert channel_examples["cpu"]["inventory_title"] == "CPU"
+    assert channel_examples["cpu"]["inventory_count"] == "3 packages"
+    assert "./simple/cpu/vllm/" in channel_examples["cpu"]["inventory_html"]
+    assert "0.22.0+cpu" in channel_examples["cpu"]["inventory_html"]
+    assert channel_examples["cu118"]["inventory_count"] == "0 packages"
+    assert (
+        "No packages currently published."
+        in channel_examples["cu118"]["inventory_html"]
+    )
     assert "--extra-index-url" in channel_examples["cpu"]["snippets"]["pip"]
     assert channel_examples["cu118"]["has_packages"] is False
     assert "PACKAGE==VERSION" in channel_examples["cu118"]["snippets"]["uv_add"]
