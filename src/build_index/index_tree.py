@@ -42,7 +42,7 @@ def build_index_tree(
         _write_text(
             output / "index.html",
             _index_landing_html(
-                config.channels,
+                config,
                 projects_by_channel,
                 files,
                 public_base_url=public_base_url,
@@ -207,12 +207,13 @@ def _simple_landing_html(channels: tuple[ChannelConfig, ...]) -> str:
 
 
 def _index_landing_html(
-    channels: tuple[ChannelConfig, ...],
+    config: IndexConfig,
     projects_by_channel: dict[str, tuple[str, ...]],
     files: dict[tuple[str, str], list[CollectedArtifact]],
     *,
     public_base_url: str | None,
 ) -> str:
+    channels = config.channels
     populated_channels = tuple(
         channel for channel in channels if projects_by_channel[channel.name]
     )
@@ -233,6 +234,7 @@ def _index_landing_html(
         for channel in channels
     }
     return _landing_template().render(
+        build_packages=_build_package_catalog(config),
         channel_examples_json=_json_script(channel_examples),
         channels=_landing_channels(
             channels,
@@ -241,6 +243,23 @@ def _index_landing_html(
         ),
         example=channel_examples[example_channel.name],
     )
+
+
+def _build_package_catalog(config: IndexConfig) -> list[dict[str, str]]:
+    packages = {}
+    for repository in config.repositories:
+        _owner, name = repository.repository.split("/", maxsplit=1)
+        if not name.startswith("build-"):
+            continue
+        for project in repository.projects:
+            packages[project] = repository.repository
+    return [
+        {
+            "name": project,
+            "url": f"https://github.com/{packages[project]}",
+        }
+        for project in sorted(packages)
+    ]
 
 
 def _landing_template():

@@ -81,6 +81,15 @@
     p { color: #e0e0e0; }
     .intro + .intro { margin-top: 1rem; }
     .example-note { color: #888; margin: 0.25rem 0 0.5rem; }
+    .package-catalog {
+      display: grid;
+      gap: 0.25rem 1rem;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      list-style: none;
+      margin: 0.75rem 0;
+    }
+    .package-catalog li { min-width: 0; }
+    .package-catalog a { display: block; overflow-wrap: anywhere; }
     .channel-chooser {
       display: grid;
       gap: 0.5rem;
@@ -229,11 +238,13 @@
     .astral a:hover { opacity: 0.7; }
     .astral svg { height: 1.5rem; }
     @media (max-width: 520px) {
+      .package-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .channel-chooser { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .package-row { gap: 0.2rem; grid-template-columns: minmax(0, 1fr); }
       .package-versions { text-align: left; }
     }
     @media (max-width: 340px) {
+      .package-catalog { grid-template-columns: minmax(0, 1fr); }
       .channel-chooser { grid-template-columns: minmax(0, 1fr); }
     }
     @media (prefers-color-scheme: light) {
@@ -299,6 +310,14 @@
 
   <p class="intro">Following the PyTorch convention, the Astral GPU indexes use a separate index URL for each supported CUDA version, such as <a href="./simple/cu128/"><code>/simple/cu128/</code></a>, and publish a separate wheel version for each supported CUDA and PyTorch combination, such as <code>+cu.12.8.torch.2.11</code>.</p>
 
+  <h2 id="packages">Packages</h2>
+  <p>The Astral GPU indexes include builds for the following packages:</p>
+  <ul class="package-catalog">
+{% for package in build_packages %}
+    <li><a href="{{ package.url }}" target="_blank" rel="noopener noreferrer"><code>{{ package.name }}</code></a></li>
+{% endfor %}
+  </ul>
+
   <h2 id="available-indexes">Available indexes</h2>
 {% call terminal(copy=False) %}
 {% for channel in channels %}
@@ -326,6 +345,7 @@
 {% call terminal(snippet="pip") %}{{ example.snippets.pip|safe }}{% endcall %}
 
   <h2 id="package-inventory">Manifest</h2>
+  <p class="example-note">Select an index above to browse its available packages and versions.</p>
   <div class="package-panel">
     <div class="package-panel-header">
       <span class="package-panel-title" data-inventory-title>{{ example.inventory_title }}</span>

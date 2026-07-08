@@ -221,9 +221,27 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
     )
     assert "flash-attn==2.8.3+cu126" in landing_html
     assert "\\\n    flash-attn==2.8.3+cu126" in landing_html
+    assert '<h2 id="packages">Packages</h2>' in landing_html
+    assert (
+        "The Astral GPU indexes include builds for the following packages:"
+        in landing_html
+    )
+    assert (
+        '<a href="https://github.com/example/build-flash-attention" '
+        'target="_blank" rel="noopener noreferrer"><code>flash-attn</code></a>'
+        in landing_html
+    )
+    assert (
+        '<a href="https://github.com/example/build-vllm" target="_blank" '
+        'rel="noopener noreferrer"><code>vllm</code></a>' in landing_html
+    )
     assert "<details" not in landing_html
     assert '<span class="package-panel-title" data-inventory-title>' in landing_html
     assert '<h2 id="package-inventory">Manifest</h2>' in landing_html
+    assert (
+        "Select an index above to browse its available packages and versions."
+        in landing_html
+    )
     assert ">CUDA 12.6</span>" in landing_html
     assert (
         '<span class="package-panel-count" data-inventory-count>1 package</span>'
