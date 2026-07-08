@@ -217,7 +217,7 @@ def _index_landing_html(
         channel for channel in channels if projects_by_channel[channel.name]
     )
     example_channel = next(
-        (channel for channel in populated_channels if channel.name == "cu128"),
+        (channel for channel in channels if channel.name == "cu126"),
         populated_channels[0] if populated_channels else channels[0],
     )
     base_url = (
@@ -237,7 +237,6 @@ def _index_landing_html(
         channels=_landing_channels(
             channels,
             projects_by_channel,
-            files,
             selected=example_channel.name,
         ),
         example=channel_examples[example_channel.name],
@@ -257,7 +256,6 @@ def _landing_template():
 def _landing_channels(
     channels: tuple[ChannelConfig, ...],
     projects_by_channel: dict[str, tuple[str, ...]],
-    files: dict[tuple[str, str], list[CollectedArtifact]],
     *,
     selected: str,
 ) -> list[dict[str, Any]]:
@@ -265,19 +263,6 @@ def _landing_channels(
     for channel in channels:
         projects = projects_by_channel[channel.name]
         package_label = "package" if len(projects) == 1 else "packages"
-        rendered_projects = []
-        for project in projects:
-            versions = sorted(
-                {artifact.version for artifact in files[(channel.name, project)]},
-                key=lambda value: (Version(value), value),
-                reverse=True,
-            )
-            rendered_projects.append(
-                {
-                    "name": project,
-                    "versions": versions,
-                }
-            )
         result.append(
             {
                 "count": len(projects),
@@ -285,7 +270,6 @@ def _landing_channels(
                 "display_name": _channel_display_name(channel),
                 "name": channel.name,
                 "package_label": package_label,
-                "projects": rendered_projects,
                 "selected": channel.name == selected,
             }
         )
@@ -317,49 +301,74 @@ def _channel_example(
     requirement = f"{project}=={version}"
     index_name = f"astral-{channel.name}"
     index_url = f"{base_url}/simple/{channel.name}/"
-    uv_project_config = (
-        "[[tool.uv.index]]\n"
-        f'name = "{index_name}"\n'
-        f'url = "{index_url}"\n'
-        "explicit = true"
-    )
-    uv_source_config = (
-        f'[tool.uv.sources]\n"{project}" = [\n  {{ index = "{index_name}" }},\n]'
-    )
-    uv_add_command = f"uv add {requirement}"
+    uv_add_command = f"uv add {requirement} --index {index_name}={index_url}"
     uv_pip_command = (
-        f"uv pip install \\\n    {requirement} \\\n    --index-url {index_url}"
+        f"uv pip install \\\n    {requirement} \\\n    --index {index_name}={index_url}"
     )
     pip_command = (
         "python -m pip install \\\n"
         f"    {requirement} \\\n"
         f"    --extra-index-url {index_url}"
     )
-    if projects:
-        note = (
-            f"Examples use <code>{_escape(channel.name)}</code> with "
-            f"<code>{_escape(project)}</code> "
-            f"<code>{_escape(version)}</code>."
-        )
-    else:
-        note = (
-            f"No packages are currently published for <code>{_escape(channel.name)}</code>; "
-            "package-specific examples use placeholders."
-        )
     return {
         "channel": channel.name,
         "has_packages": bool(projects),
-        "note": note,
+        "inventory_count": (
+            f"{len(projects)} {'package' if len(projects) == 1 else 'packages'}"
+        ),
+        "inventory_html": _package_inventory_html(channel, projects, files),
+        "inventory_title": _channel_display_name(channel),
+        "manifest_note": (
+            f"Package versions available in the {_channel_display_name(channel)} index."
+        ),
         "project": project,
+        "uv_add_note": (
+            f"Use <code>uv add</code> to pin a package to the Astral "
+            f"{'CPU' if channel.name == 'cpu' else 'GPU'} index."
+        ),
+        "uv_pip_note": (
+            f"Add the Astral {'CPU' if channel.name == 'cpu' else 'GPU'} index as "
+            "an extra <code>--index</code> at install time."
+        ),
+        "pip_note": (
+            f"Add the Astral {'CPU' if channel.name == 'cpu' else 'GPU'} index as "
+            "an extra <code>--extra-index-url</code> at install time."
+        ),
         "snippets": {
-            "index_config": _highlight_toml(uv_project_config),
-            "source_config": _highlight_toml(uv_source_config),
             "uv_add": _highlight_shell(uv_add_command),
             "uv_pip": _highlight_shell(uv_pip_command),
             "pip": _highlight_shell(pip_command),
         },
         "version": version,
     }
+
+
+def _package_inventory_html(
+    channel: ChannelConfig,
+    projects: tuple[str, ...],
+    files: dict[tuple[str, str], list[CollectedArtifact]],
+) -> str:
+    if not projects:
+        return '<p class="empty-state">No packages currently published.</p>'
+
+    rows = []
+    for project in projects:
+        versions = sorted(
+            {artifact.version for artifact in files[(channel.name, project)]},
+            key=lambda value: (Version(value), value),
+            reverse=True,
+        )
+        rendered_versions = ", ".join(
+            f'<span class="cmd">{_escape(version)}</span>' for version in versions
+        )
+        rows.append(
+            '<div class="package-row">'
+            f'<a class="package-name" href="./simple/{_escape(channel.name)}/'
+            f'{_escape(project)}/">{_escape(project)}</a>'
+            f'<span class="package-versions">{rendered_versions}</span>'
+            "</div>"
+        )
+    return "\n".join(rows)
 
 
 def _channel_display_name(channel: ChannelConfig) -> str:
@@ -376,29 +385,6 @@ def _json_script(value: Any) -> str:
         .replace("<", "\\u003c")
         .replace(">", "\\u003e")
     )
-
-
-def _highlight_toml(value: str) -> str:
-    lines = []
-    for line in value.splitlines():
-        if not line or line.startswith("[") or line[:1].isspace():
-            lines.append(_escape(line))
-            continue
-        key, separator, rest = line.partition("=")
-        if separator:
-            lines.append(
-                f'<span class="cmd">{_escape(key.rstrip())}</span> '
-                f"{separator} {_highlight_toml_value(rest.strip())}"
-            )
-        else:
-            lines.append(_escape(line))
-    return "\n".join(lines)
-
-
-def _highlight_toml_value(value: str) -> str:
-    if value.startswith('"') and value.endswith('"'):
-        return f'<span class="string">{_escape(value)}</span>'
-    return _escape(value)
 
 
 def _highlight_shell(value: str) -> str:

@@ -90,6 +90,15 @@ def example_collection():
             ),
             artifact(
                 "example/build-flash-attention",
+                "flash_attn-2.8.3+cu126-py3-none-any.whl",
+                "flash-attn",
+                "2.8.3+cu126",
+                "cu126",
+                sha256="2" * 64,
+                size=5005,
+            ),
+            artifact(
+                "example/build-flash-attention",
                 "flash_attn-2.8.3+cu128-py3-none-any.whl",
                 "flash-attn",
                 "2.8.3+cu128",
@@ -177,70 +186,120 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
     assert "#sha256=" + "b" * 64 in project_html
     assert 'data-core-metadata="sha256=' + "e" * 64 + '"' in project_html
     assert 'data-requires-python="&gt;=3.10"' in project_html
-    assert "<h1>Astral build indexes</h1>" in landing_html
-    assert '<a class="catalog-name" href="./simple/cu128/">cu128</a>' in landing_html
-    assert "CUDA 12.8 builds" in landing_html
-    assert "Using an index with uv" in landing_html
-    assert "Add the index" in landing_html
-    assert "Point the package to the index" in landing_html
-    assert "Add the dependency" in landing_html
-    assert "Use <code>explicit = true</code>" in landing_html
-    assert "packages listed in <code>tool.uv.sources</code>" in landing_html
-    assert "[[tool.uv.index]]" in landing_html
-    assert '<span class="cmd">name</span> = ' in landing_html
-    assert '<span class="string">&quot;astral-cu128&quot;</span>' in landing_html
-    assert '<span class="cmd">url</span> = ' in landing_html
+    assert "<h1>Astral GPU indexes</h1>" in landing_html
+    assert '<h2 id="available-indexes">Available indexes</h2>' in landing_html
+    assert "And for the following compute platforms:" not in landing_html
+    assert 'class="index-link"' not in landing_html
     assert (
-        '<span class="string">&quot;https://packages.example/simple/cu128/&quot;</span>'
+        'class="terminal"'
+        not in landing_html.split('<h2 id="available-indexes">', maxsplit=1)[1].split(
+            '<h2 id="using-indexes">', maxsplit=1
+        )[0]
+    )
+    assert "Using an index with uv" in landing_html
+    assert (
+        '<span class="cmd">uv</span> add flash-attn==2.8.3+cu126 '
+        '<span class="flag">--index</span> '
+        '<span class="url">astral-cu126=https://packages.example/simple/cu126/</span>'
         in landing_html
     )
-    assert '<span class="cmd">explicit</span> = true' in landing_html
-    assert "[tool.uv.sources]" in landing_html
-    assert '<span class="cmd">&quot;flash-attn&quot;</span> = ' in landing_html
-    assert "  { index = &quot;astral-cu128&quot; }," in landing_html
-    assert "]</code></pre>" in landing_html
-    assert '<span class="cmd">uv</span> add flash-attn==2.8.3+cu128' in landing_html
+    assert (
+        "Use <code>uv add</code> to pin a package to the Astral GPU index."
+        in landing_html
+    )
+    assert (
+        "Add the Astral GPU index as an extra <code>--index</code> at install time."
+        in landing_html
+    )
     assert '<span class="cmd">uv</span> pip install ' in landing_html
-    assert '<span class="flag">--index-url</span>' in landing_html
+    assert '<span class="flag">--index</span>' in landing_html
     assert (
         '<span class="cmd">python</span> '
         '<span class="flag">-m</span> pip install ' in landing_html
     )
     assert '<span class="flag">--extra-index-url</span>' in landing_html
-    assert "keep PyPI available" in landing_html
     assert (
-        '<span class="url">https://packages.example/simple/cu128/</span>'
+        "Add the Astral GPU index as an extra <code>--extra-index-url</code> "
+        "at install time." in landing_html
+    )
+    assert (
+        '<span class="url">https://packages.example/simple/cu126/</span>'
         in landing_html
     )
-    assert "flash-attn==2.8.3+cu128" in landing_html
-    assert "\\\n    flash-attn==2.8.3+cu128" in landing_html
-    assert '<details id="index-cu128">' in landing_html
+    assert "flash-attn==2.8.3+cu126" in landing_html
+    assert "\\\n    flash-attn==2.8.3+cu126" in landing_html
     assert (
-        '<a class="catalog-name project-name" '
-        'href="./simple/cu128/index-test-gpu/">index-test-gpu</a>' in landing_html
+        'href="https://github.com/astral-sh-build" target="_blank" '
+        'rel="noopener noreferrer">open source</a> build pipelines.' in landing_html
     )
-    assert '<span class="cmd">0.1.0+cu128</span>' in landing_html
-    assert "No packages currently published for this channel." in landing_html
+    assert '<h2 id="package-inventory">Manifest</h2>' in landing_html
+    assert (
+        '<p class="example-note" data-manifest-note>Package versions available '
+        "in the CUDA 12.6 index.</p>" in landing_html
+    )
+    assert '<span class="package-panel-title" data-inventory-title>' in landing_html
+    assert (
+        '<span class="package-panel-count" data-inventory-count>1 package</span>'
+        in landing_html
+    )
+    assert '<div class="package-row">' in landing_html
+    assert (
+        '<a class="package-name" href="./simple/cu126/flash-attn/">flash-attn</a>'
+        in landing_html
+    )
+    assert '<span class="cmd">2.8.3+cu126</span>' in landing_html
+    assert "Supported projects" not in landing_html
+    assert landing_html.index("At present") < landing_html.index(
+        'id="available-indexes"'
+    )
+    assert (
+        '<p class="intro">At present, the Astral GPU indexes include builds for '
+        "the following packages:</p>" in landing_html
+    )
+    assert landing_html.count('class="package-link"') == 19
+    assert (
+        'href="https://github.com/astral-sh-build/build-flash-attention" '
+        'target="_blank" rel="noopener noreferrer">Flash Attention</a>' in landing_html
+    )
+    assert (
+        'href="https://github.com/astral-sh-build/build-sageattention" '
+        'target="_blank" rel="noopener noreferrer">SageAttention2++</a>' in landing_html
+    )
+    assert (
+        'href="https://github.com/astral-sh-build/build-vllm" target="_blank" '
+        'rel="noopener noreferrer">vLLM</a>' in landing_html
+    )
+    assert "index-test-cpu</a>" not in landing_html
+    assert "<details" not in landing_html
     assert "<style" in landing_html
     assert "stylesheet" not in landing_html
+    assert "min-width: 0;" in landing_html
+    assert "width: 100%;" in landing_html
     assert "<script" in landing_html
     assert 'aria-label="Made by Astral"' in landing_html
     assert '<svg width="139" height="24"' in landing_html
     assert ".astral svg { height: 1.5rem; }" in landing_html
+    assert '<link rel="canonical" href="https://wheels.astral.sh/">' in landing_html
+    assert "https://astral.sh/static/favicon-32x32.png" in landing_html
+    assert '<meta property="og:title" content="Astral GPU indexes">' in landing_html
     assert "copyCode" in landing_html
-    assert landing_html.count('onclick="copyCode(this)"') == 5
+    assert landing_html.count('onclick="copyCode(this)"') == 3
     assert (
         '<div class="channel-chooser" role="group" aria-label="Select channel">'
         in landing_html
     )
+    assert landing_html.index('class="channel-chooser"') < landing_html.index(
+        'id="using-indexes"'
+    )
     assert 'data-channel="cpu" aria-pressed="false"' in landing_html
-    assert 'data-channel="cu128" aria-pressed="true"' in landing_html
+    assert 'data-channel="cu126" aria-pressed="true"' in landing_html
+    assert 'data-channel="cu128" aria-pressed="false"' in landing_html
     assert '<span class="channel-label">CPU</span>' in landing_html
     assert '<span class="channel-meta">cpu / 3 packages</span>' in landing_html
+    assert '<span class="channel-label">CUDA 12.6</span>' in landing_html
+    assert '<span class="channel-meta">cu126 / 1 package</span>' in landing_html
     assert '<span class="channel-label">CUDA 12.8</span>' in landing_html
     assert '<span class="channel-meta">cu128 / 4 packages</span>' in landing_html
-    assert 'data-snippet="index-config"' in landing_html
-    assert 'data-snippet="source-config"' in landing_html
     assert 'data-snippet="uv-add"' in landing_html
     assert 'data-snippet="uv-pip"' in landing_html
     assert 'data-snippet="pip"' in landing_html
@@ -252,25 +311,44 @@ def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
     channel_data_end = landing_html.index("</script>", channel_data_start)
     channel_examples = json.loads(landing_html[channel_data_start:channel_data_end])
     assert channel_examples["cpu"]["has_packages"] is True
-    assert "astral-cpu" in channel_examples["cpu"]["snippets"]["index_config"]
-    assert (
-        "https://packages.example/simple/cpu/"
-        in channel_examples["cpu"]["snippets"]["index_config"]
-    )
     assert "vllm==0.22.0+cpu" in channel_examples["cpu"]["snippets"]["uv_add"]
-    assert "flash-attn==2.8.3+cu128" in channel_examples["cu128"]["snippets"]["uv_add"]
-    assert "--index-url" in channel_examples["cpu"]["snippets"]["uv_pip"]
-    assert "--extra-index-url" in channel_examples["cpu"]["snippets"]["pip"]
     assert (
-        "  { index = &quot;astral-cpu&quot; },"
-        in channel_examples["cpu"]["snippets"]["source_config"]
+        '<span class="flag">--index</span> '
+        '<span class="url">astral-cpu=https://packages.example/simple/cpu/</span>'
+        in channel_examples["cpu"]["snippets"]["uv_add"]
     )
+    assert "flash-attn==2.8.3+cu128" in channel_examples["cu128"]["snippets"]["uv_add"]
+    assert (
+        '<span class="flag">--index</span> '
+        '<span class="url">astral-cpu=https://packages.example/simple/cpu/</span>'
+        in channel_examples["cpu"]["snippets"]["uv_pip"]
+    )
+    assert "Astral CPU index" in channel_examples["cpu"]["uv_pip_note"]
+    assert "Astral GPU index" in channel_examples["cu126"]["uv_pip_note"]
+    assert "Astral CPU index" in channel_examples["cpu"]["uv_add_note"]
+    assert "Astral GPU index" in channel_examples["cu126"]["uv_add_note"]
+    assert "Astral CPU index" in channel_examples["cpu"]["pip_note"]
+    assert "Astral GPU index" in channel_examples["cu126"]["pip_note"]
+    assert channel_examples["cpu"]["inventory_title"] == "CPU"
+    assert (
+        channel_examples["cpu"]["manifest_note"]
+        == "Package versions available in the CPU index."
+    )
+    assert (
+        channel_examples["cu128"]["manifest_note"]
+        == "Package versions available in the CUDA 12.8 index."
+    )
+    assert channel_examples["cpu"]["inventory_count"] == "3 packages"
+    assert "./simple/cpu/vllm/" in channel_examples["cpu"]["inventory_html"]
+    assert "0.22.0+cpu" in channel_examples["cpu"]["inventory_html"]
+    assert channel_examples["cu118"]["inventory_count"] == "0 packages"
+    assert (
+        "No packages currently published."
+        in channel_examples["cu118"]["inventory_html"]
+    )
+    assert "--extra-index-url" in channel_examples["cpu"]["snippets"]["pip"]
     assert channel_examples["cu118"]["has_packages"] is False
     assert "PACKAGE==VERSION" in channel_examples["cu118"]["snippets"]["uv_add"]
-    assert (
-        "package-specific examples use placeholders"
-        in channel_examples["cu118"]["note"]
-    )
     assert not (output / "catalog").exists()
     assert not (output / "artifacts").exists()
 

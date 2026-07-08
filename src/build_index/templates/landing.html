@@ -18,8 +18,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Astral build indexes</title>
-  <meta name="description" content="Pre-built Python wheels organized by compute platform.">
+  <title>Astral GPU indexes</title>
+  <meta name="description" content="Pre-built, GPU-enabled wheels for the Python ecosystem.">
+  <meta name="robots" content="index,follow">
+  <meta name="referrer" content="no-referrer-when-downgrade">
+  <meta name="theme-color" content="#0c0c0c">
+  <meta name="msapplication-TileColor" content="#d7ff64">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Astral">
+  <meta property="og:title" content="Astral GPU indexes">
+  <meta property="og:description" content="Pre-built, GPU-enabled wheels for the Python ecosystem.">
+  <meta property="og:url" content="https://wheels.astral.sh/">
+  <meta property="og:image" content="https://astral.sh/static/OpenGraph/Astral.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@astral_sh">
+  <meta name="twitter:title" content="Astral GPU indexes">
+  <meta name="twitter:description" content="Pre-built, GPU-enabled wheels for the Python ecosystem.">
+  <meta name="twitter:image" content="https://astral.sh/static/OpenGraph/Astral.jpg">
+  <link rel="canonical" href="https://wheels.astral.sh/">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://astral.sh/static/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://astral.sh/static/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://astral.sh/static/favicon-16x16.png">
+  <link rel="mask-icon" href="https://astral.sh/static/safari-pinned-tab.svg" color="#2e183d">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -59,13 +79,16 @@
       margin: 1rem 0 0.35rem;
     }
     p { color: #e0e0e0; }
-    .note { margin-top: 1rem; }
+    .intro + .intro { margin-top: 1rem; }
     .example-note { color: #888; margin: 0.25rem 0 0.5rem; }
+    .package-list { margin: 0.5rem 0 0; padding-left: 1.5rem; }
+    .package-list li { padding-left: 0.25rem; }
     .channel-chooser {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
       gap: 0.5rem;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       margin: 0.75rem 0 0.35rem;
+      width: 100%;
     }
     .channel-option {
       align-items: flex-start;
@@ -77,10 +100,13 @@
       display: inline-flex;
       flex-direction: column;
       font-family: inherit;
-      gap: 0.05rem;
-      min-width: 7rem;
+      gap: 0;
+      height: 3.25rem;
+      justify-content: space-between;
+      min-width: 0;
       padding: 0.35rem 0.55rem;
       transition: all 0.2s;
+      width: 100%;
     }
     .channel-option:hover {
       background: #1e1e1e;
@@ -106,7 +132,9 @@
       border: 1px solid #2a2a2a;
       border-radius: 8px;
       margin: 0.5rem 0;
+      min-width: 0;
       overflow: hidden;
+      width: 100%;
     }
     .terminal-header {
       background: #1e1e1e;
@@ -153,31 +181,37 @@
     .pipe { color: #f8f8f2; font-weight: bold; }
     .string { color: #f1fa8c; }
     .comment { color: #6272a4; font-style: italic; }
-    .catalog-name {
-      display: inline-block;
-      min-width: 5.25rem;
-    }
-    .catalog-description {
-      display: inline-block;
-      min-width: 13rem;
-      color: #e0e0e0;
-    }
-    .catalog-count { color: #888; }
-    .project-name { min-width: 13rem; }
     a { color: #D7FF64; text-decoration: none; }
     a:hover { text-decoration: underline; }
-    details { margin: 0.5rem 0; }
-    summary {
-      color: #e0e0e0;
-      cursor: pointer;
-      list-style-position: inside;
+    .package-panel {
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      margin: 0.5rem 0;
+      overflow: hidden;
     }
-    summary:hover { color: #D7FF64; }
-    .empty-state {
-      color: #888;
-      margin: 0.35rem 0 0.75rem;
-      padding-left: 1.1rem;
+    .package-panel-header {
+      align-items: baseline;
+      background: #1e1e1e;
+      border-bottom: 1px solid #2a2a2a;
+      display: flex;
+      gap: 1rem;
+      justify-content: space-between;
+      padding: 0.65rem 1rem;
     }
+    .package-panel-title { color: #e0e0e0; font-weight: 600; }
+    .package-panel-count { color: #888; white-space: nowrap; }
+    .package-row {
+      align-items: baseline;
+      border-top: 1px solid #2a2a2a;
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: minmax(8rem, 0.4fr) minmax(0, 1fr);
+      padding: 0.65rem 1rem;
+    }
+    .package-row:first-child { border-top: 0; }
+    .package-name { overflow-wrap: anywhere; }
+    .package-versions { text-align: right; }
+    .empty-state { color: #888; padding: 1rem; }
     .footer { margin-top: 3rem; color: #666; font-size: 0.875rem; }
     .footer a { color: #888; }
     .footer a:hover { color: #D7FF64; }
@@ -185,6 +219,14 @@
     .astral a { transition: opacity 0.2s; }
     .astral a:hover { opacity: 0.7; }
     .astral svg { height: 1.5rem; }
+    @media (max-width: 520px) {
+      .channel-chooser { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .package-row { gap: 0.2rem; grid-template-columns: minmax(0, 1fr); }
+      .package-versions { text-align: left; }
+    }
+    @media (max-width: 340px) {
+      .channel-chooser { grid-template-columns: minmax(0, 1fr); }
+    }
     @media (prefers-color-scheme: light) {
       body { background: #fff; color: #222; }
       h1 { color: #000; }
@@ -225,11 +267,12 @@
       .pipe { color: #222; }
       .string { color: #b58900; }
       .comment { color: #93a1a1; }
-      .catalog-description { color: #222; }
-      .catalog-count { color: #666; }
       a { color: #6340AC; }
-      summary { color: #222; }
-      summary:hover { color: #6340AC; }
+      .package-panel { border-color: #e0e0e0; }
+      .package-panel-header { background: #ececec; border-color: #e0e0e0; }
+      .package-panel-title { color: #222; }
+      .package-panel-count { color: #666; }
+      .package-row { border-color: #e0e0e0; }
       .footer { color: #888; }
       .footer a { color: #666; }
       .footer a:hover { color: #6340AC; }
@@ -238,19 +281,37 @@
   </style>
 </head>
 <body>
-  <h1>Astral build indexes</h1>
-  <p class="tagline">Pre-built Python wheels organized by compute platform.</p>
+  <h1>Astral GPU indexes</h1>
+  <p class="tagline">Pre-built, GPU-enabled wheels for the Python ecosystem.</p>
 
-  <p>Choose an index matching your target compute platform. Each index supplements PyPI with selected wheel builds.</p>
+  <p class="intro">Pre-built wheels for popular GPU-enabled packages in the PyTorch ecosystem, like <a href="https://github.com/Dao-AILab/flash-attention" target="_blank" rel="noopener noreferrer">FlashAttention</a>, across a range of Python versions, CPU architectures, CUDA versions, and PyTorch versions, based on <a href="https://github.com/astral-sh-build" target="_blank" rel="noopener noreferrer">open source</a> build pipelines.</p>
+
+  <p class="intro">Following the PyTorch convention, the Astral GPU indexes use a separate index URL for each supported CUDA version (e.g., <a href="./simple/cu128/"><code>/simple/cu128</code></a>), and publish a separate wheel version for each supported CUDA and PyTorch combination (e.g., <code>+cu.12.8.torch.2.11</code>).</p>
+
+  <p class="intro">At present, the Astral GPU indexes include builds for the following packages:</p>
+  <ul class="package-list">
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-adan" target="_blank" rel="noopener noreferrer">Adan</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-causal-conv1d" target="_blank" rel="noopener noreferrer">causal-conv1d</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-deepep" target="_blank" rel="noopener noreferrer">DeepEP</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-deepgemm" target="_blank" rel="noopener noreferrer">DeepGEMM</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-deepspeed" target="_blank" rel="noopener noreferrer">DeepSpeed</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-detectron2" target="_blank" rel="noopener noreferrer">Detectron2</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-flash-attention" target="_blank" rel="noopener noreferrer">Flash Attention</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-flash-attention-3" target="_blank" rel="noopener noreferrer">Flash Attention 3</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-grouped-gemm" target="_blank" rel="noopener noreferrer">Grouped GEMM</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-mamba" target="_blank" rel="noopener noreferrer">Mamba SSM</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-megablocks" target="_blank" rel="noopener noreferrer">MegaBlocks</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-mmcv" target="_blank" rel="noopener noreferrer">MMCV</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-pycuda" target="_blank" rel="noopener noreferrer">PyCUDA</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-pytorch-scatter" target="_blank" rel="noopener noreferrer">PyTorch Scatter</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-pytorch3d" target="_blank" rel="noopener noreferrer">PyTorch3D</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-sageattention" target="_blank" rel="noopener noreferrer">SageAttention2++</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-sageattention3" target="_blank" rel="noopener noreferrer">SageAttention3</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-transformer-engine-torch" target="_blank" rel="noopener noreferrer">TransformerEngine</a></li>
+    <li><a class="package-link" href="https://github.com/astral-sh-build/build-vllm" target="_blank" rel="noopener noreferrer">vLLM</a></li>
+  </ul>
 
   <h2 id="available-indexes">Available indexes</h2>
-{% call terminal(copy=False) %}
-{% for channel in channels %}
-<a class="catalog-name" href="./simple/{{ channel.name }}/">{{ channel.name }}</a><span class="catalog-description">{{ channel.description }}</span><span class="catalog-count">{{ channel.count }} {{ channel.package_label }}</span>{{ "\n" if not loop.last else "" -}}
-{% endfor %}
-{% endcall %}
-  <h2 id="using-indexes">Using an index with uv</h2>
-  <p>Choose a channel to update the examples and copy buttons below.</p>
   <div class="channel-chooser" role="group" aria-label="Select channel">
 {% for channel in channels %}
     <button type="button" class="channel-option" data-channel="{{ channel.name }}" aria-pressed="{{ 'true' if channel.selected else 'false' }}">
@@ -259,40 +320,29 @@
     </button>
 {% endfor %}
   </div>
-  <p class="example-note" data-example-note>{{ example.note|safe }}</p>
-  <h3>Add the index</h3>
-  <p class="example-note">Use <code>explicit = true</code> so this index is only used for packages listed in <code>tool.uv.sources</code>.</p>
-{% call terminal(snippet="index-config") %}{{ example.snippets.index_config|safe }}{% endcall %}
-  <h3>Point the package to the index</h3>
-{% call terminal(snippet="source-config") %}{{ example.snippets.source_config|safe }}{% endcall %}
-  <h3>Add the dependency</h3>
+
+  <h2 id="using-indexes">Using an index with uv</h2>
+  <p class="example-note" data-uv-add-note>{{ example.uv_add_note|safe }}</p>
 {% call terminal(snippet="uv-add") %}{{ example.snippets.uv_add|safe }}{% endcall %}
 
   <h2>The uv pip interface</h2>
+  <p class="example-note" data-uv-pip-note>{{ example.uv_pip_note|safe }}</p>
 {% call terminal(snippet="uv-pip") %}{{ example.snippets.uv_pip|safe }}{% endcall %}
 
   <h2>pip</h2>
-  <p class="example-note">Because these indexes contain selected wheels, keep PyPI available by adding the selected index as an extra index.</p>
+  <p class="example-note" data-pip-note>{{ example.pip_note|safe }}</p>
 {% call terminal(snippet="pip") %}{{ example.snippets.pip|safe }}{% endcall %}
 
-  <p class="note">These indexes contain selected builds, not a complete PyPI mirror. Pin package versions in automated environments.</p>
+  <h2 id="package-inventory">Manifest</h2>
+  <p class="example-note" data-manifest-note>{{ example.manifest_note }}</p>
+  <div class="package-panel">
+    <div class="package-panel-header">
+      <span class="package-panel-title" data-inventory-title>{{ example.inventory_title }}</span>
+      <span class="package-panel-count" data-inventory-count>{{ example.inventory_count }}</span>
+    </div>
+    <div data-inventory-list>{{ example.inventory_html|safe }}</div>
+  </div>
 
-  <h2 id="package-inventory">Packages and versions</h2>
-  <p>Expand an index to inspect its available packages and versions.</p>
-{% for channel in channels %}
-  <details id="index-{{ channel.name }}">
-    <summary>{{ channel.name }} - {{ channel.description }} ({{ channel.count }} {{ channel.package_label }})</summary>
-{% if channel.projects %}
-{% call terminal(copy=False) %}
-{% for project in channel.projects %}
-<a class="catalog-name project-name" href="./simple/{{ channel.name }}/{{ project.name }}/">{{ project.name }}</a>  <span class="catalog-description">{% for version in project.versions %}<span class="cmd">{{ version }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</span>{{ "\n" if not loop.last else "" -}}
-{% endfor %}
-{% endcall %}
-{% else %}
-    <p class="empty-state">No packages currently published for this channel.</p>
-{% endif %}
-  </details>
-{% endfor %}
   <div class="astral">
     <a href="https://astral.sh" target="_blank" rel="noopener noreferrer" aria-label="Made by Astral">
       <svg width="139" height="24" viewBox="0 0 139 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -327,18 +377,26 @@
       const example = channelExamples[channel];
       if (!example) return;
 
-      document.querySelector('[data-snippet="index-config"]').innerHTML =
-        example.snippets.index_config;
-      document.querySelector('[data-snippet="source-config"]').innerHTML =
-        example.snippets.source_config;
       document.querySelector('[data-snippet="uv-add"]').innerHTML =
         example.snippets.uv_add;
       document.querySelector('[data-snippet="uv-pip"]').innerHTML =
         example.snippets.uv_pip;
       document.querySelector('[data-snippet="pip"]').innerHTML =
         example.snippets.pip;
-      document.querySelector('[data-example-note]').innerHTML = example.note;
-
+      document.querySelector('[data-uv-add-note]').innerHTML =
+        example.uv_add_note;
+      document.querySelector('[data-uv-pip-note]').innerHTML =
+        example.uv_pip_note;
+      document.querySelector('[data-pip-note]').innerHTML =
+        example.pip_note;
+      document.querySelector('[data-manifest-note]').textContent =
+        example.manifest_note;
+      document.querySelector('[data-inventory-title]').textContent =
+        example.inventory_title;
+      document.querySelector('[data-inventory-count]').textContent =
+        example.inventory_count;
+      document.querySelector('[data-inventory-list]').innerHTML =
+        example.inventory_html;
       document.querySelectorAll('[data-channel]').forEach((btn) => {
         btn.setAttribute('aria-pressed', String(btn.dataset.channel === channel));
       });
