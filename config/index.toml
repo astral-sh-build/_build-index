@@ -131,6 +131,12 @@ projects = ["pycuda"]
 access = "public"
 
 [[repository]]
+repository = "astral-sh-build/build-pyg-lib"
+pretty_name = "pyg-lib"
+projects = ["pyg-lib"]
+access = "public"
+
+[[repository]]
 repository = "astral-sh-build/build-pytorch-scatter"
 pretty_name = "PyTorch Scatter"
 projects = ["torch-scatter"]
