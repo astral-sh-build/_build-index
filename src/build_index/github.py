@@ -45,6 +45,16 @@ _ROCM_LOCAL_PATTERN = re.compile(
     r"(?:^|\.)rocm(?P<major>[0-9]+)\.(?P<minor>[0-9]+)(?:\.|torch|$)"
 )
 _XPU_LOCAL_PATTERN = re.compile(r"(?:^|\.)xpu(?:\.|$)")
+_STANDARD_LOCAL_VERSION_PATTERN = re.compile(
+    r"^(?:"
+    r"cpu(?:\.torch\.[0-9]+\.[0-9]+(?:\.[0-9]+)?)?"
+    r"|cu[0-9]+(?:\.[0-9]+)?"
+    r"|cu\.[0-9]+\.[0-9]+(?:\.torch\.[0-9]+\.[0-9]+(?:\.[0-9]+)?)?"
+    r"|rocm[0-9]+\.[0-9]+"
+    r"|rocm\.[0-9]+\.[0-9]+(?:\.torch\.[0-9]+\.[0-9]+(?:\.[0-9]+)?)?"
+    r"|xpu(?:\.torch\.[0-9]+\.[0-9]+(?:\.[0-9]+)?)?"
+    r")$"
+)
 
 
 class GitHubError(CollectionError):
@@ -623,6 +633,15 @@ def _collected_artifact(
         raise WheelCompatibilityError(
             f"invalid wheel filename in {context}: {source_filename}"
         ) from error
+
+    if version.local is not None and not _STANDARD_LOCAL_VERSION_PATTERN.fullmatch(
+        version.local
+    ):
+        logger(
+            f"  excluded wheel with nonstandard local version: "
+            f"{release}/{source_filename}"
+        )
+        return None
 
     project = canonicalize_name(distribution)
     if project not in repository.projects:
