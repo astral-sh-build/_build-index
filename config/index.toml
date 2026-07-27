@@ -164,24 +164,18 @@ access = "public"
 repository = "astral-sh-build/build-transformer-engine"
 pretty_name = "TransformerEngine"
 projects = ["transformer-engine"]
-channels = ["cu121", "cu124", "cu126", "cu128", "cu129", "cu130", "cu132"]
-multiplex = true
 access = "private"
 
 [[repository]]
 repository = "astral-sh-build/build-transformer-engine-cu12"
 pretty_name = "TransformerEngine CUDA 12 Core"
 projects = ["transformer-engine-cu12"]
-channels = ["cu121", "cu124", "cu126", "cu128", "cu129"]
-multiplex = true
 access = "private"
 
 [[repository]]
 repository = "astral-sh-build/build-transformer-engine-cu13"
 pretty_name = "TransformerEngine CUDA 13 Core"
 projects = ["transformer-engine-cu13"]
-channels = ["cu130", "cu132"]
-multiplex = true
 access = "private"
 
 [[repository]]

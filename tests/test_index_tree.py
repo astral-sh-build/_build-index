@@ -128,48 +128,6 @@ def example_collection():
     )
 
 
-def test_build_index_tree_multiplexes_one_pure_wheel(tmp_path: Path) -> None:
-    output = tmp_path / "dist"
-    channels = ("cu126", "cu128", "cu129")
-    filename = "index_test_gpu-0.1.0-py3-none-any.whl"
-    repository = replace(
-        CONFIG.repositories[1],
-        channels=channels,
-        multiplex=True,
-    )
-    config = replace(CONFIG, repositories=(repository,))
-    collection = collection_from_artifacts(
-        artifact(
-            repository.repository,
-            filename,
-            "index-test-gpu",
-            "0.1.0",
-            channel,
-            sha256="b" * 64,
-            size=5002,
-            requires_python=">=3.10",
-        )
-        for channel in channels
-    )
-
-    build_index_tree(
-        config,
-        output,
-        collection=collection,
-        public_base_url="https://packages.example",
-    )
-
-    files = []
-    for channel in channels:
-        path = output / "simple" / channel / "index-test-gpu" / "index.json"
-        project = json.loads(path.read_text())
-        assert project["versions"] == ["0.1.0"]
-        files.append(project["files"][0])
-
-    assert all(file == files[0] for file in files)
-    assert files[0]["filename"] == filename
-
-
 def test_build_index_tree_generates_index_documents(tmp_path: Path) -> None:
     output = tmp_path / "dist"
 

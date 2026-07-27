@@ -186,10 +186,7 @@ def mirror_artifacts(
         repositories.append(repository)
 
     if collection.artifacts:
-        unique_artifact_count = len(
-            {artifact_key(artifact) for artifact in collection.artifacts}
-        )
-        head_workers = min(_MAX_HEAD_WORKERS, unique_artifact_count)
+        head_workers = min(_MAX_HEAD_WORKERS, len(collection.artifacts))
         logger(
             f"checking existing mirror state: artifacts={len(collection.artifacts)}, "
             f"workers={head_workers}"
@@ -207,14 +204,10 @@ def mirror_artifacts(
         if existing is not None:
             logger(f"already mirrored: {artifact.filename}")
 
-    missing_indexes: dict[str, int] = {}
-    for index, (artifact, existing) in enumerate(
-        zip(collection.artifacts, existing_metadata, strict=True)
-    ):
-        if existing is None:
-            missing_indexes.setdefault(artifact_key(artifact), index)
-
-    mirrored_metadata: dict[str, tuple[str, str | None]] = {}
+    missing_indexes = [
+        index for index, existing in enumerate(existing_metadata) if existing is None
+    ]
+    mirrored_metadata: dict[int, tuple[str, str | None]] = {}
     if missing_indexes:
         mirror_workers = min(workers, len(missing_indexes))
         logger(
@@ -226,7 +219,7 @@ def mirror_artifacts(
             thread_name_prefix="artifact-mirror",
         ) as executor:
             futures = {
-                key: executor.submit(
+                index: executor.submit(
                     _mirror_artifact,
                     collection.artifacts[index],
                     repositories[index],
@@ -234,17 +227,17 @@ def mirror_artifacts(
                     store,
                     logger,
                 )
-                for key, index in missing_indexes.items()
+                for index in missing_indexes
             }
             mirrored_metadata = {
-                key: future.result() for key, future in futures.items()
+                index: future.result() for index, future in futures.items()
             }
 
-    for artifact, existing in zip(collection.artifacts, existing_metadata, strict=True):
+    for index, (artifact, existing) in enumerate(
+        zip(collection.artifacts, existing_metadata, strict=True)
+    ):
         metadata_sha256, requires_python = (
-            existing
-            if existing is not None
-            else mirrored_metadata[artifact_key(artifact)]
+            existing if existing is not None else mirrored_metadata[index]
         )
         mirrored.append(
             replace(
@@ -427,25 +420,21 @@ def _existing_metadata_for_artifacts(
 ) -> tuple[tuple[str, str | None] | None, ...]:
     if not artifacts:
         return ()
-    unique_artifacts: dict[str, CollectedArtifact] = {}
-    for artifact in artifacts:
-        unique_artifacts.setdefault(artifact_key(artifact), artifact)
-    workers = min(_MAX_HEAD_WORKERS, len(unique_artifacts))
+    workers = min(_MAX_HEAD_WORKERS, len(artifacts))
     with ThreadPoolExecutor(
         max_workers=workers,
         thread_name_prefix="r2-head",
     ) as executor:
-        futures = {
-            key: executor.submit(
+        futures = [
+            executor.submit(
                 _existing_metadata,
                 store,
                 artifact,
-                key,
+                artifact_key(artifact),
             )
-            for key, artifact in unique_artifacts.items()
-        }
-        existing = {key: future.result() for key, future in futures.items()}
-        return tuple(existing[artifact_key(artifact)] for artifact in artifacts)
+            for artifact in artifacts
+        ]
+        return tuple(future.result() for future in futures)
 
 
 def _existing_metadata(

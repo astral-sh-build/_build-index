@@ -87,64 +87,6 @@ channels = ["cpu"]
     assert config.repositories[-1].channels == ("cpu",)
 
 
-def test_config_accepts_multiplexed_repository_channels(tmp_path: Path) -> None:
-    path = tmp_path / "index.toml"
-    path.write_text(
-        CONFIG.read_text(encoding="utf-8")
-        + """
-
-[[repository]]
-repository = "astral-sh-build/build-transformer-engine"
-projects = ["transformer-engine"]
-channels = ["cu126", "cu128", "cu129"]
-multiplex = true
-""",
-        encoding="utf-8",
-    )
-
-    repository = load_config(path).repositories[-1]
-
-    assert repository.channels == ("cu126", "cu128", "cu129")
-    assert repository.multiplex is True
-
-
-def test_config_rejects_multiplex_without_explicit_channels(tmp_path: Path) -> None:
-    path = tmp_path / "index.toml"
-    path.write_text(
-        CONFIG.read_text(encoding="utf-8")
-        + """
-
-[[repository]]
-repository = "astral-sh-build/build-transformer-engine"
-projects = ["transformer-engine"]
-multiplex = true
-""",
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ConfigError, match="multiplex requires explicit channels"):
-        load_config(path)
-
-
-def test_config_rejects_non_boolean_multiplex(tmp_path: Path) -> None:
-    path = tmp_path / "index.toml"
-    path.write_text(
-        CONFIG.read_text(encoding="utf-8")
-        + """
-
-[[repository]]
-repository = "astral-sh-build/build-transformer-engine"
-projects = ["transformer-engine"]
-channels = ["cu128"]
-multiplex = "true"
-""",
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ConfigError, match="multiplex must be a boolean"):
-        load_config(path)
-
-
 def test_config_rejects_non_normalized_project_name(tmp_path: Path) -> None:
     path = tmp_path / "index.toml"
     path.write_text(

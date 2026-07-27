@@ -252,45 +252,6 @@ def test_mirror_publishes_wheel_and_exact_metadata_then_resumes(
     assert store.puts == [key, f"{key}.metadata"]
 
 
-def test_mirror_uploads_multiplexed_wheel_only_once(tmp_path: Path) -> None:
-    wheel = tmp_path / FILENAME
-    artifact = make_wheel(wheel)
-    channels = ("cu126", "cu128", "cu129")
-    collection = collection_from_artifacts(
-        replace(artifact, channel=channel) for channel in channels
-    )
-    downloader = FakeDownloader(wheel)
-    store = FakeStore()
-
-    mirrored = mirror_artifacts(
-        CONFIG,
-        collection,
-        downloader,
-        store,
-        public_base_url="https://packages.example",
-    )
-
-    key = artifact_key(artifact)
-    assert downloader.calls == 1
-    assert store.puts == [key, f"{key}.metadata"]
-    assert [item.channel for item in mirrored.artifacts] == list(channels)
-    assert {item.published_url for item in mirrored.artifacts} == {
-        f"https://packages.example/{key}"
-    }
-
-    repeated = mirror_artifacts(
-        CONFIG,
-        collection,
-        downloader,
-        store,
-        public_base_url="https://packages.example",
-    )
-
-    assert repeated == mirrored
-    assert downloader.calls == 1
-    assert store.puts == [key, f"{key}.metadata"]
-
-
 def test_mirror_checks_existing_artifacts_concurrently_and_preserves_order(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
