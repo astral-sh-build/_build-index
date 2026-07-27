@@ -181,6 +181,37 @@ def test_collect_release_assets_multiplexes_python_version_independent_wheels(
 
 
 @pytest.mark.parametrize(
+    ("project", "channels"),
+    [
+        ("transformer-engine-cu12", ("cu121", "cu124", "cu126", "cu128", "cu129")),
+        ("transformer-engine-cu13", ("cu130", "cu132")),
+    ],
+)
+def test_collect_release_assets_multiplexes_native_transformer_engine_cores(
+    project: str,
+    channels: tuple[str, ...],
+) -> None:
+    config = load_config(ROOT / "config" / "index.toml")
+    repository = next(
+        item for item in config.repositories if item.projects == (project,)
+    )
+    config = replace(config, repositories=(repository,))
+    filenames = [
+        f"{project.replace('-', '_')}-2.16.0-py3-none-manylinux_2_28_{architecture}.whl"
+        for architecture in ("x86_64", "aarch64")
+    ]
+    client = FakeGitHubClient(
+        {repository.repository: [release([asset(name) for name in filenames])]}
+    )
+
+    collection = collect_release_assets(config, client)
+
+    assert {
+        (artifact.channel, artifact.filename) for artifact in collection.artifacts
+    } == {(channel, filename) for channel in channels for filename in filenames}
+
+
+@pytest.mark.parametrize(
     "filename",
     [
         "index_test_gpu-0.1.0+cu128-py3-none-any.whl",
