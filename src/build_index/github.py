@@ -8,7 +8,7 @@ import re
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urljoin
@@ -16,6 +16,7 @@ from urllib.parse import quote, urljoin
 from packaging.utils import (
     InvalidWheelFilename,
     canonicalize_name,
+    parse_wheel_filename,
 )
 from packaging.version import InvalidVersion, Version
 
@@ -606,7 +607,15 @@ def _release_artifacts(
             continue
         if artifact.filename != filename:
             logger(f"  normalized wheel filename: {filename} -> {artifact.filename}")
-        result.append(artifact)
+        if repository.multiplex:
+            assert repository.channels is not None
+            result.extend(
+                replace(artifact, channel=channel)
+                for channel in repository.channels
+                if channel not in repository.ignored_channels
+            )
+        else:
+            result.append(artifact)
     return result
 
 
@@ -704,6 +713,29 @@ def _artifact_channel(
     *,
     channels: tuple[str, ...],
 ) -> str:
+    if repository.multiplex:
+        if version.local is not None:
+            raise WheelCompatibilityError(
+                f"multiplexed wheel must be an unlabeled pure-Python wheel: {filename}"
+            )
+        _distribution, _version, _build, tags = parse_wheel_filename(filename)
+        if any(tag.abi != "none" or tag.platform != "any" for tag in tags):
+            raise WheelCompatibilityError(
+                f"multiplexed wheel must be an unlabeled pure-Python wheel: {filename}"
+            )
+        if repository.channels is None:
+            raise CollectionError(
+                f"multiplexed repository requires explicit channels: "
+                f"{repository.repository}"
+            )
+        for channel in repository.channels:
+            if channel not in repository.ignored_channels:
+                return channel
+        raise CollectionError(
+            f"multiplexed repository has no publishable channels: "
+            f"{repository.repository}"
+        )
+
     if version.local is not None:
         candidates = tuple(dict.fromkeys((*channels, *repository.ignored_channels)))
         channel = _infer_channel_label(version, candidates)

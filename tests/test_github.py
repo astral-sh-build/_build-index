@@ -149,6 +149,53 @@ def test_collect_release_assets_assigns_channels_and_ignores_non_wheels() -> Non
     ]
 
 
+def test_collect_release_assets_multiplexes_pure_wheel_across_channels() -> None:
+    repository = replace(
+        CONFIG.repositories[1],
+        channels=("cu126", "cu128", "cu129"),
+        multiplex=True,
+    )
+    config = replace(CONFIG, repositories=(repository,))
+    filename = "index_test_gpu-0.1.0-py3-none-any.whl"
+    client = FakeGitHubClient({repository.repository: [release([asset(filename)])]})
+
+    collection = collect_release_assets(config, client)
+
+    assert [
+        (artifact.channel, artifact.filename, artifact.sha256)
+        for artifact in collection.artifacts
+    ] == [
+        ("cu126", filename, "a" * 64),
+        ("cu128", filename, "a" * 64),
+        ("cu129", filename, "a" * 64),
+    ]
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "index_test_gpu-0.1.0+cu128-py3-none-any.whl",
+        "index_test_gpu-0.1.0-cp312-cp312-manylinux_2_28_x86_64.whl",
+    ],
+)
+def test_collect_release_assets_rejects_nonuniversal_multiplexed_wheels(
+    filename: str,
+) -> None:
+    repository = replace(
+        CONFIG.repositories[1],
+        channels=("cu126", "cu128"),
+        multiplex=True,
+    )
+    config = replace(CONFIG, repositories=(repository,))
+    client = FakeGitHubClient({repository.repository: [release([asset(filename)])]})
+
+    with pytest.raises(
+        WheelCompatibilityError,
+        match="multiplexed wheel must be an unlabeled pure-Python wheel",
+    ):
+        collect_release_assets(config, client)
+
+
 def test_collect_release_assets_skips_nonstandard_cuda_names() -> None:
     filenames = [
         "index_test_gpu-0.1.0+cu.12.8.torch.2.8-py3-none-any.whl",

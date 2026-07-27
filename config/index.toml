@@ -161,6 +161,14 @@ projects = ["sageattn3"]
 access = "public"
 
 [[repository]]
+repository = "astral-sh-build/build-transformer-engine"
+pretty_name = "TransformerEngine"
+projects = ["transformer-engine"]
+channels = ["cu121", "cu124", "cu126", "cu128", "cu129", "cu130", "cu132"]
+multiplex = true
+access = "private"
+
+[[repository]]
 repository = "astral-sh-build/build-transformer-engine-torch"
 pretty_name = "TransformerEngine"
 projects = ["transformer-engine-torch"]
