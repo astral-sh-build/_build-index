@@ -264,7 +264,7 @@ def test_collect_release_assets_rejects_nonuniversal_multiplexed_wheels(
         collect_release_assets(config, client)
 
 
-def test_collect_release_assets_skips_nonstandard_cuda_names() -> None:
+def test_collect_release_assets_preserves_historical_cuda_names() -> None:
     filenames = [
         "index_test_gpu-0.1.0+cu.12.8.torch.2.8-py3-none-any.whl",
         "index_test_gpu-0.2.0+cu12.8.0torch2.8.0cxx11abiTRUE-py3-none-any.whl",
@@ -282,17 +282,11 @@ def test_collect_release_assets_skips_nonstandard_cuda_names() -> None:
         }
     )
 
-    messages: list[str] = []
-
-    collection = collect_release_assets(CONFIG, client, log=messages.append)
+    collection = collect_release_assets(CONFIG, client)
 
     assert [
         (artifact.filename, artifact.channel) for artifact in collection.artifacts
-    ] == [(filenames[0], "cu128")]
-    assert any(
-        "excluded wheel with nonstandard local version" in message
-        for message in messages
-    )
+    ] == [(filename, "cu128") for filename in filenames]
 
 
 def test_collect_release_assets_infers_globally_configured_channel() -> None:
@@ -330,18 +324,6 @@ def test_collect_release_assets_preserves_cuda_only_and_canonical_versions(
     assert collection.artifacts[0].channel == "cu124"
 
 
-def test_collect_release_assets_preserves_cpu_torch_patch_versions() -> None:
-    filename = "index_test_cpu-0.1.0+cpu.torch.2.10.0-py3-none-any.whl"
-    client = FakeGitHubClient(
-        {"example/build-index-test-cpu": [release([asset(filename)])]}
-    )
-
-    collection = collect_release_assets(CONFIG, client)
-
-    assert collection.artifacts[0].filename == filename
-    assert collection.artifacts[0].channel == "cpu"
-
-
 def test_collect_release_assets_enforces_channel_restriction() -> None:
     repositories = tuple(
         replace(repository, channels=("cpu",))
@@ -372,10 +354,9 @@ def test_collect_release_assets_rejects_incompatible_wheel() -> None:
         collect_release_assets(CONFIG, client)
 
 
-def test_collect_release_assets_skips_repeated_local_version_separator() -> None:
+def test_collect_release_assets_normalizes_legacy_wheel_filename() -> None:
     source = (
-        "index_test_gpu-1.2.1+cu.12.8.torch.2.10+"
-        "cu12.8torch2.10.0cxx11abiTRUE-py3-none-any.whl"
+        "index_test_gpu-1.2.1+1300811+cu12.8torch2.10.0cxx11abiTRUE-py3-none-any.whl"
     )
     client = FakeGitHubClient(
         {"example/build-index-test-gpu": [release([asset(source)])]}
@@ -384,11 +365,11 @@ def test_collect_release_assets_skips_repeated_local_version_separator() -> None
 
     collection = collect_release_assets(CONFIG, client, log=messages.append)
 
-    assert collection.artifacts == ()
-    assert any(
-        "excluded wheel with nonstandard local version" in message
-        for message in messages
+    assert collection.artifacts[0].filename == (
+        "index_test_gpu-1.2.1+1300811.cu12.8torch2.10.0cxx11abiTRUE-py3-none-any.whl"
     )
+    assert collection.artifacts[0].source_url.endswith(source)
+    assert any("normalized wheel filename" in message for message in messages)
 
 
 def test_collect_release_assets_hashes_asset_when_digest_is_absent() -> None:
