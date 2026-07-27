@@ -716,12 +716,19 @@ def _artifact_channel(
     if repository.multiplex:
         if version.local is not None:
             raise WheelCompatibilityError(
-                f"multiplexed wheel must be an unlabeled pure-Python wheel: {filename}"
+                f"multiplexed wheel must be an unlabeled "
+                f"Python-version-independent wheel: {filename}"
             )
         _distribution, _version, _build, tags = parse_wheel_filename(filename)
-        if any(tag.abi != "none" or tag.platform != "any" for tag in tags):
+        if any(
+            tag.interpreter != "py3"
+            or tag.abi != "none"
+            or (tag.platform != "any" and not tag.platform.startswith("manylinux_"))
+            for tag in tags
+        ):
             raise WheelCompatibilityError(
-                f"multiplexed wheel must be an unlabeled pure-Python wheel: {filename}"
+                f"multiplexed wheel must be an unlabeled "
+                f"Python-version-independent wheel: {filename}"
             )
         if repository.channels is None:
             raise CollectionError(

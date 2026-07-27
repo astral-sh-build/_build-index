@@ -149,14 +149,23 @@ def test_collect_release_assets_assigns_channels_and_ignores_non_wheels() -> Non
     ]
 
 
-def test_collect_release_assets_multiplexes_pure_wheel_across_channels() -> None:
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "index_test_gpu-0.1.0-py3-none-any.whl",
+        "index_test_gpu-0.1.0-py3-none-manylinux_2_28_x86_64.whl",
+        "index_test_gpu-0.1.0-py3-none-manylinux_2_28_aarch64.whl",
+    ],
+)
+def test_collect_release_assets_multiplexes_python_version_independent_wheels(
+    filename: str,
+) -> None:
     repository = replace(
         CONFIG.repositories[1],
         channels=("cu126", "cu128", "cu129"),
         multiplex=True,
     )
     config = replace(CONFIG, repositories=(repository,))
-    filename = "index_test_gpu-0.1.0-py3-none-any.whl"
     client = FakeGitHubClient({repository.repository: [release([asset(filename)])]})
 
     collection = collect_release_assets(config, client)
@@ -191,7 +200,7 @@ def test_collect_release_assets_rejects_nonuniversal_multiplexed_wheels(
 
     with pytest.raises(
         WheelCompatibilityError,
-        match="multiplexed wheel must be an unlabeled pure-Python wheel",
+        match="multiplexed wheel must be an unlabeled Python-version-independent wheel",
     ):
         collect_release_assets(config, client)
 
