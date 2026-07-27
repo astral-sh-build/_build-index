@@ -111,8 +111,11 @@ Stable post releases remain eligible.
 
 ## Artifact channels
 
-An explicit wheel local-version label such as `+cpu` or `+cu128` is
-authoritative. Compound local versions use their leading channel label.
+An explicit wheel local-version label such as `+cpu`, `+cu128`, `+cu12.4`, or
+`+cu.12.4` is authoritative. Collection admits channel-only labels and the
+canonical compound build schema, such as `+cpu.torch.2.10` or
+`+cu.12.8.torch.2.11`. Wheels with nonstandard local versions are skipped
+before mirroring.
 
 `ignored_channels` excludes matching wheels before the global publication
 allowlist is enforced. An ignored channel therefore does not need a global
@@ -154,9 +157,8 @@ make a mismatched wheel acceptable to installers that enforce metadata and
 filename agreement.
 
 Some legacy producers published invalid wheel filenames containing repeated
-local-version `+` separators. Those filenames are normalized only for the
-index-facing package filename. Their source URLs and mirrored wheel bytes remain
-unchanged.
+local-version `+` separators. Collection recognizes them only far enough to
+classify their local version as nonstandard, then skips them before mirroring.
 
 ## Retained artifacts
 

@@ -42,6 +42,7 @@ class RepositoryConfig:
     repository: str
     projects: tuple[str, ...]
     channels: tuple[str, ...] | None = None
+    multiplex: bool = False
     access: str = "private"
     tag_regex: str = _DEFAULT_TAG_REGEX
     minimum_release_version: Version | None = None
@@ -129,6 +130,7 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
             "projects",
             "pretty_name",
             "channels",
+            "multiplex",
             "access",
             "tag_regex",
             "minimum_release_version",
@@ -158,6 +160,13 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
         if not channels:
             raise ConfigError(f"{context}.channels must not be empty when specified")
         _require_unique(channels, f"{context} channel")
+
+    multiplex = data.get("multiplex", False)
+    if not isinstance(multiplex, bool):
+        raise ConfigError(f"{context}.multiplex must be a boolean")
+    if multiplex and channels is None:
+        raise ConfigError(f"{context}.multiplex requires explicit channels")
+
     for project in projects:
         if canonicalize_name(project) != project:
             raise ConfigError(
@@ -239,6 +248,7 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
         projects=projects,
         pretty_name=pretty_name,
         channels=channels,
+        multiplex=multiplex,
         access=access,
         tag_regex=tag_regex,
         minimum_release_version=minimum_release_version,
