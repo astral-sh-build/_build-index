@@ -187,7 +187,9 @@ def test_collect_release_assets_multicasts_transformer_engine_metapackage() -> N
     )
     config = replace(config, repositories=(repository,))
     filename = "transformer_engine-2.16.0-py3-none-any.whl"
-    client = FakeGitHubClient({repository.repository: [release([asset(filename)])]})
+    client = FakeGitHubClient(
+        {repository.repository: [release([asset(filename)], tag="v2.16")]}
+    )
 
     collection = collect_release_assets(config, client)
 
@@ -229,7 +231,11 @@ def test_collect_release_assets_routes_cuda_versioned_transformer_engine_cores(
         for architecture in ("x86_64", "aarch64")
     ]
     client = FakeGitHubClient(
-        {repository.repository: [release([asset(name) for name in filenames])]}
+        {
+            repository.repository: [
+                release([asset(name) for name in filenames], tag="v2.16")
+            ]
+        }
     )
 
     collection = collect_release_assets(config, client)
