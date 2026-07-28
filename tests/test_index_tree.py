@@ -128,14 +128,15 @@ def example_collection():
     )
 
 
-def test_build_index_tree_multiplexes_one_pure_wheel(tmp_path: Path) -> None:
+def test_build_index_tree_publishes_one_pure_wheel_to_configured_channels(
+    tmp_path: Path,
+) -> None:
     output = tmp_path / "dist"
     channels = ("cu126", "cu128", "cu129")
     filename = "index_test_gpu-0.1.0-py3-none-any.whl"
     repository = replace(
         CONFIG.repositories[1],
         channels=channels,
-        multiplex=True,
     )
     config = replace(CONFIG, repositories=(repository,))
     collection = collection_from_artifacts(

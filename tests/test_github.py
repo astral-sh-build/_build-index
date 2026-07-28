@@ -157,13 +157,12 @@ def test_collect_release_assets_assigns_channels_and_ignores_non_wheels() -> Non
         "index_test_gpu-0.1.0-py3-none-manylinux_2_28_aarch64.whl",
     ],
 )
-def test_collect_release_assets_multiplexes_python_version_independent_wheels(
+def test_collect_release_assets_fans_out_python_version_independent_wheels(
     filename: str,
 ) -> None:
     repository = replace(
         CONFIG.repositories[1],
         channels=("cu126", "cu128", "cu129"),
-        multiplex=True,
     )
     config = replace(CONFIG, repositories=(repository,))
     client = FakeGitHubClient({repository.repository: [release([asset(filename)])]})
@@ -224,7 +223,6 @@ def test_collect_release_assets_routes_cuda_versioned_transformer_engine_cores(
         item for item in config.repositories if item.projects == (project,)
     )
     assert repository.channels is None
-    assert not repository.multiplex
     config = replace(config, repositories=(repository,))
     filenames = [
         f"{project.replace('-', '_')}-2.16.0+cu.{cuda_version}"
@@ -249,25 +247,73 @@ def test_collect_release_assets_routes_cuda_versioned_transformer_engine_cores(
 @pytest.mark.parametrize(
     "filename",
     [
-        "index_test_gpu-0.1.0+cu128-py3-none-any.whl",
         "index_test_gpu-0.1.0-cp312-cp312-manylinux_2_28_x86_64.whl",
+        "index_test_gpu-0.1.0-py3-none-musllinux_1_2_x86_64.whl",
     ],
 )
-def test_collect_release_assets_rejects_nonuniversal_multiplexed_wheels(
+def test_collect_release_assets_rejects_nonuniversal_unlabeled_wheels(
     filename: str,
 ) -> None:
     repository = replace(
         CONFIG.repositories[1],
         channels=("cu126", "cu128"),
-        multiplex=True,
     )
     config = replace(CONFIG, repositories=(repository,))
     client = FakeGitHubClient({repository.repository: [release([asset(filename)])]})
 
     with pytest.raises(
         WheelCompatibilityError,
-        match="multiplexed wheel must be an unlabeled Python-version-independent wheel",
+        match=(
+            "unlabeled wheel with explicit channels must be Python-version-independent"
+        ),
     ):
+        collect_release_assets(config, client)
+
+
+def test_collect_release_assets_routes_labeled_wheel_to_explicit_channel() -> None:
+    repository = replace(
+        CONFIG.repositories[1],
+        channels=("cu126", "cu128", "cu129"),
+    )
+    config = replace(CONFIG, repositories=(repository,))
+    filename = "index_test_gpu-0.1.0+cu128-py3-none-any.whl"
+    client = FakeGitHubClient({repository.repository: [release([asset(filename)])]})
+
+    collection = collect_release_assets(config, client)
+
+    assert [
+        (artifact.channel, artifact.filename) for artifact in collection.artifacts
+    ] == [("cu128", filename)]
+
+
+def test_collect_release_assets_fanout_skips_ignored_channels() -> None:
+    repository = replace(
+        CONFIG.repositories[1],
+        channels=("cu126", "cu128", "cu129"),
+        ignored_channels=("cu128",),
+    )
+    config = replace(CONFIG, repositories=(repository,))
+    filename = "index_test_gpu-0.1.0-py3-none-any.whl"
+    client = FakeGitHubClient({repository.repository: [release([asset(filename)])]})
+
+    collection = collect_release_assets(config, client)
+
+    assert [
+        (artifact.channel, artifact.filename) for artifact in collection.artifacts
+    ] == [("cu126", filename), ("cu129", filename)]
+
+
+def test_collect_release_assets_rejects_fanout_without_publishable_channels() -> None:
+    repository = replace(
+        CONFIG.repositories[1],
+        channels=("cu128",),
+        ignored_channels=("cu128",),
+    )
+    config = replace(CONFIG, repositories=(repository,))
+    filename = "index_test_gpu-0.1.0-py3-none-any.whl"
+    client = FakeGitHubClient({repository.repository: [release([asset(filename)])]})
+
+    with pytest.raises(CollectionError, match="repository has no publishable channels"):
         collect_release_assets(config, client)
 
 
@@ -590,6 +636,25 @@ def test_upstream_vllm_unlabeled_wheels_use_bounded_release_mapping(
     assert artifact.channel == expected_channel
     assert artifact.filename == filename
     assert artifact.release == tag
+
+
+def test_upstream_vllm_channel_rules_do_not_fan_out_explicit_channels() -> None:
+    config = upstream_vllm_config()
+    repository = replace(
+        config.repositories[0],
+        channels=("cu128", "cu129", "cu130"),
+    )
+    config = replace(config, repositories=(repository,))
+    filename = "vllm-0.20.0-cp312-cp312-manylinux_2_28_x86_64.whl"
+    client = FakeGitHubClient(
+        {repository.repository: [release([asset(filename)], tag="v0.20.0")]}
+    )
+
+    collection = collect_release_assets(config, client)
+
+    assert [
+        (artifact.channel, artifact.filename) for artifact in collection.artifacts
+    ] == [("cu130", filename)]
 
 
 @pytest.mark.parametrize("version", ["0.22.1", "0.23.0"])

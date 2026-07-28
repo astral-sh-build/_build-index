@@ -42,7 +42,6 @@ class RepositoryConfig:
     repository: str
     projects: tuple[str, ...]
     channels: tuple[str, ...] | None = None
-    multiplex: bool = False
     access: str = "private"
     tag_regex: str = _DEFAULT_TAG_REGEX
     minimum_release_version: Version | None = None
@@ -130,7 +129,6 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
             "projects",
             "pretty_name",
             "channels",
-            "multiplex",
             "access",
             "tag_regex",
             "minimum_release_version",
@@ -153,20 +151,13 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
     ):
         raise ConfigError(f"{context}.pretty_name must be a non-empty string")
     channels = _string_tuple(data, "channels", context) if "channels" in data else None
-    multiplex = "multiplex" in data
-    if multiplex:
-        if channels is not None:
-            raise ConfigError(f"{context}.multiplex cannot be combined with channels")
-        channels = _string_tuple(data, "multiplex", context)
     if not projects:
         raise ConfigError(f"{context}.projects must not be empty")
     _require_unique(projects, f"{context} project")
     if channels is not None:
         if not channels:
-            field = "multiplex" if multiplex else "channels"
-            raise ConfigError(f"{context}.{field} must not be empty when specified")
+            raise ConfigError(f"{context}.channels must not be empty when specified")
         _require_unique(channels, f"{context} channel")
-
     for project in projects:
         if canonicalize_name(project) != project:
             raise ConfigError(
@@ -248,7 +239,6 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
         projects=projects,
         pretty_name=pretty_name,
         channels=channels,
-        multiplex=multiplex,
         access=access,
         tag_regex=tag_regex,
         minimum_release_version=minimum_release_version,

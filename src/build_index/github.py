@@ -597,8 +597,11 @@ def _release_artifacts(
             continue
         if artifact.filename != filename:
             logger(f"  normalized wheel filename: {filename} -> {artifact.filename}")
-        if repository.multiplex:
-            assert repository.channels is not None
+        if (
+            repository.channels is not None
+            and not repository.unlabeled_channel_rules
+            and Version(artifact.version).local is None
+        ):
             result.extend(
                 replace(artifact, channel=channel)
                 for channel in repository.channels
@@ -694,12 +697,11 @@ def _artifact_channel(
     *,
     channels: tuple[str, ...],
 ) -> str:
-    if repository.multiplex:
-        if version.local is not None:
-            raise WheelCompatibilityError(
-                f"multiplexed wheel must be an unlabeled "
-                f"Python-version-independent wheel: {filename}"
-            )
+    if (
+        version.local is None
+        and repository.channels is not None
+        and not repository.unlabeled_channel_rules
+    ):
         _distribution, _version, _build, tags = parse_wheel_filename(filename)
         if any(
             tag.interpreter != "py3"
@@ -708,20 +710,14 @@ def _artifact_channel(
             for tag in tags
         ):
             raise WheelCompatibilityError(
-                f"multiplexed wheel must be an unlabeled "
-                f"Python-version-independent wheel: {filename}"
-            )
-        if repository.channels is None:
-            raise CollectionError(
-                f"multiplexed repository requires explicit channels: "
-                f"{repository.repository}"
+                f"unlabeled wheel with explicit channels must be "
+                f"Python-version-independent: {filename}"
             )
         for channel in repository.channels:
             if channel not in repository.ignored_channels:
                 return channel
         raise CollectionError(
-            f"multiplexed repository has no publishable channels: "
-            f"{repository.repository}"
+            f"repository has no publishable channels: {repository.repository}"
         )
 
     if version.local is not None:
