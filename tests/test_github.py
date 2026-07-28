@@ -149,7 +149,223 @@ def test_collect_release_assets_assigns_channels_and_ignores_non_wheels() -> Non
     ]
 
 
-def test_collect_release_assets_skips_nonstandard_cuda_names() -> None:
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "index_test_gpu-0.1.0-py3-none-any.whl",
+        "index_test_gpu-0.1.0-py3-none-manylinux_2_28_x86_64.whl",
+        "index_test_gpu-0.1.0-py3-none-manylinux_2_28_aarch64.whl",
+    ],
+)
+def test_collect_release_assets_fans_out_python_version_independent_wheels(
+    filename: str,
+) -> None:
+    repository = replace(
+        CONFIG.repositories[1],
+        channels=("cu126", "cu128", "cu129"),
+    )
+    config = replace(CONFIG, repositories=(repository,))
+    client = FakeGitHubClient({repository.repository: [release([asset(filename)])]})
+
+    collection = collect_release_assets(config, client)
+
+    assert [
+        (artifact.channel, artifact.filename, artifact.sha256)
+        for artifact in collection.artifacts
+    ] == [
+        ("cu126", filename, "a" * 64),
+        ("cu128", filename, "a" * 64),
+        ("cu129", filename, "a" * 64),
+    ]
+
+
+def test_collect_release_assets_multicasts_transformer_engine_metapackage() -> None:
+    config = load_config(ROOT / "config" / "index.toml")
+    repository = next(
+        item for item in config.repositories if item.projects == ("transformer-engine",)
+    )
+    config = replace(config, repositories=(repository,))
+    filename = "transformer_engine-2.16.0-py3-none-any.whl"
+    client = FakeGitHubClient(
+        {repository.repository: [release([asset(filename)], tag="v2.16")]}
+    )
+
+    collection = collect_release_assets(config, client)
+
+    assert [
+        (artifact.channel, artifact.filename, artifact.sha256)
+        for artifact in collection.artifacts
+    ] == [
+        (channel, filename, "a" * 64)
+        for channel in ("cu121", "cu124", "cu126", "cu128", "cu129", "cu130", "cu132")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("project", "local_version", "wheel_tag"),
+    [
+        ("transformer-engine", "", "py3-none-any"),
+        ("transformer-engine-cu12", "+cu.12.8", "py3-none-manylinux_2_28_x86_64"),
+        ("transformer-engine-cu13", "+cu.13.0", "py3-none-manylinux_2_28_x86_64"),
+        (
+            "transformer-engine-torch",
+            "+cu.12.8.torch.2.10",
+            "cp312-cp312-manylinux_2_28_x86_64",
+        ),
+    ],
+)
+def test_collect_release_assets_filters_legacy_transformer_engine_revisions(
+    project: str,
+    local_version: str,
+    wheel_tag: str,
+) -> None:
+    config = load_config(ROOT / "config" / "index.toml")
+    repository = next(
+        item for item in config.repositories if item.projects == (project,)
+    )
+    assert repository.access == "public"
+    config = replace(config, repositories=(repository,))
+
+    def filename(version: str) -> str:
+        distribution = project.replace("-", "_")
+        return f"{distribution}-{version}{local_version}-{wheel_tag}.whl"
+
+    current = filename("2.16.0")
+    client = FakeGitHubClient(
+        {
+            repository.repository: [
+                release([asset(filename("2.5.0"), asset_id=1)], tag="v2.5"),
+                release([asset(filename("2.15.0"), asset_id=2)], tag="v2.15"),
+                release([asset(current, asset_id=3)], tag="v2.16"),
+                release([asset(current, asset_id=4)], tag="v2.16-r1"),
+            ]
+        }
+    )
+
+    collection = collect_release_assets(config, client)
+
+    assert collection.artifacts
+    assert {artifact.release for artifact in collection.artifacts} == {"v2.16-r1"}
+    assert {artifact.filename for artifact in collection.artifacts} == {current}
+
+
+@pytest.mark.parametrize(
+    ("project", "cuda_version", "channel"),
+    [
+        ("transformer-engine-cu12", "12.1", "cu121"),
+        ("transformer-engine-cu12", "12.4", "cu124"),
+        ("transformer-engine-cu12", "12.6", "cu126"),
+        ("transformer-engine-cu12", "12.8", "cu128"),
+        ("transformer-engine-cu12", "12.9", "cu129"),
+        ("transformer-engine-cu13", "13.0", "cu130"),
+        ("transformer-engine-cu13", "13.2", "cu132"),
+    ],
+)
+def test_collect_release_assets_routes_cuda_versioned_transformer_engine_cores(
+    project: str,
+    cuda_version: str,
+    channel: str,
+) -> None:
+    config = load_config(ROOT / "config" / "index.toml")
+    repository = next(
+        item for item in config.repositories if item.projects == (project,)
+    )
+    assert repository.channels is None
+    config = replace(config, repositories=(repository,))
+    filenames = [
+        f"{project.replace('-', '_')}-2.16.0+cu.{cuda_version}"
+        f"-py3-none-manylinux_2_28_{architecture}.whl"
+        for architecture in ("x86_64", "aarch64")
+    ]
+    client = FakeGitHubClient(
+        {
+            repository.repository: [
+                release([asset(name) for name in filenames], tag="v2.16")
+            ]
+        }
+    )
+
+    collection = collect_release_assets(config, client)
+
+    assert {
+        (artifact.channel, artifact.filename) for artifact in collection.artifacts
+    } == {(channel, filename) for filename in filenames}
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "index_test_gpu-0.1.0-cp312-cp312-manylinux_2_28_x86_64.whl",
+        "index_test_gpu-0.1.0-py3-none-musllinux_1_2_x86_64.whl",
+    ],
+)
+def test_collect_release_assets_rejects_nonuniversal_unlabeled_wheels(
+    filename: str,
+) -> None:
+    repository = replace(
+        CONFIG.repositories[1],
+        channels=("cu126", "cu128"),
+    )
+    config = replace(CONFIG, repositories=(repository,))
+    client = FakeGitHubClient({repository.repository: [release([asset(filename)])]})
+
+    with pytest.raises(
+        WheelCompatibilityError,
+        match=(
+            "unlabeled wheel with explicit channels must be Python-version-independent"
+        ),
+    ):
+        collect_release_assets(config, client)
+
+
+def test_collect_release_assets_routes_labeled_wheel_to_explicit_channel() -> None:
+    repository = replace(
+        CONFIG.repositories[1],
+        channels=("cu126", "cu128", "cu129"),
+    )
+    config = replace(CONFIG, repositories=(repository,))
+    filename = "index_test_gpu-0.1.0+cu128-py3-none-any.whl"
+    client = FakeGitHubClient({repository.repository: [release([asset(filename)])]})
+
+    collection = collect_release_assets(config, client)
+
+    assert [
+        (artifact.channel, artifact.filename) for artifact in collection.artifacts
+    ] == [("cu128", filename)]
+
+
+def test_collect_release_assets_fanout_skips_ignored_channels() -> None:
+    repository = replace(
+        CONFIG.repositories[1],
+        channels=("cu126", "cu128", "cu129"),
+        ignored_channels=("cu128",),
+    )
+    config = replace(CONFIG, repositories=(repository,))
+    filename = "index_test_gpu-0.1.0-py3-none-any.whl"
+    client = FakeGitHubClient({repository.repository: [release([asset(filename)])]})
+
+    collection = collect_release_assets(config, client)
+
+    assert [
+        (artifact.channel, artifact.filename) for artifact in collection.artifacts
+    ] == [("cu126", filename), ("cu129", filename)]
+
+
+def test_collect_release_assets_rejects_fanout_without_publishable_channels() -> None:
+    repository = replace(
+        CONFIG.repositories[1],
+        channels=("cu128",),
+        ignored_channels=("cu128",),
+    )
+    config = replace(CONFIG, repositories=(repository,))
+    filename = "index_test_gpu-0.1.0-py3-none-any.whl"
+    client = FakeGitHubClient({repository.repository: [release([asset(filename)])]})
+
+    with pytest.raises(CollectionError, match="repository has no publishable channels"):
+        collect_release_assets(config, client)
+
+
+def test_collect_release_assets_preserves_historical_cuda_names() -> None:
     filenames = [
         "index_test_gpu-0.1.0+cu.12.8.torch.2.8-py3-none-any.whl",
         "index_test_gpu-0.2.0+cu12.8.0torch2.8.0cxx11abiTRUE-py3-none-any.whl",
@@ -167,17 +383,11 @@ def test_collect_release_assets_skips_nonstandard_cuda_names() -> None:
         }
     )
 
-    messages: list[str] = []
-
-    collection = collect_release_assets(CONFIG, client, log=messages.append)
+    collection = collect_release_assets(CONFIG, client)
 
     assert [
         (artifact.filename, artifact.channel) for artifact in collection.artifacts
-    ] == [(filenames[0], "cu128")]
-    assert any(
-        "excluded wheel with nonstandard local version" in message
-        for message in messages
-    )
+    ] == [(filename, "cu128") for filename in filenames]
 
 
 def test_collect_release_assets_infers_globally_configured_channel() -> None:
@@ -215,18 +425,6 @@ def test_collect_release_assets_preserves_cuda_only_and_canonical_versions(
     assert collection.artifacts[0].channel == "cu124"
 
 
-def test_collect_release_assets_preserves_cpu_torch_patch_versions() -> None:
-    filename = "index_test_cpu-0.1.0+cpu.torch.2.10.0-py3-none-any.whl"
-    client = FakeGitHubClient(
-        {"example/build-index-test-cpu": [release([asset(filename)])]}
-    )
-
-    collection = collect_release_assets(CONFIG, client)
-
-    assert collection.artifacts[0].filename == filename
-    assert collection.artifacts[0].channel == "cpu"
-
-
 def test_collect_release_assets_enforces_channel_restriction() -> None:
     repositories = tuple(
         replace(repository, channels=("cpu",))
@@ -257,10 +455,9 @@ def test_collect_release_assets_rejects_incompatible_wheel() -> None:
         collect_release_assets(CONFIG, client)
 
 
-def test_collect_release_assets_skips_repeated_local_version_separator() -> None:
+def test_collect_release_assets_normalizes_legacy_wheel_filename() -> None:
     source = (
-        "index_test_gpu-1.2.1+cu.12.8.torch.2.10+"
-        "cu12.8torch2.10.0cxx11abiTRUE-py3-none-any.whl"
+        "index_test_gpu-1.2.1+1300811+cu12.8torch2.10.0cxx11abiTRUE-py3-none-any.whl"
     )
     client = FakeGitHubClient(
         {"example/build-index-test-gpu": [release([asset(source)])]}
@@ -269,11 +466,11 @@ def test_collect_release_assets_skips_repeated_local_version_separator() -> None
 
     collection = collect_release_assets(CONFIG, client, log=messages.append)
 
-    assert collection.artifacts == ()
-    assert any(
-        "excluded wheel with nonstandard local version" in message
-        for message in messages
+    assert collection.artifacts[0].filename == (
+        "index_test_gpu-1.2.1+1300811.cu12.8torch2.10.0cxx11abiTRUE-py3-none-any.whl"
     )
+    assert collection.artifacts[0].source_url.endswith(source)
+    assert any("normalized wheel filename" in message for message in messages)
 
 
 def test_collect_release_assets_hashes_asset_when_digest_is_absent() -> None:
@@ -487,6 +684,25 @@ def test_upstream_vllm_unlabeled_wheels_use_bounded_release_mapping(
     assert artifact.channel == expected_channel
     assert artifact.filename == filename
     assert artifact.release == tag
+
+
+def test_upstream_vllm_channel_rules_do_not_fan_out_explicit_channels() -> None:
+    config = upstream_vllm_config()
+    repository = replace(
+        config.repositories[0],
+        channels=("cu128", "cu129", "cu130"),
+    )
+    config = replace(config, repositories=(repository,))
+    filename = "vllm-0.20.0-cp312-cp312-manylinux_2_28_x86_64.whl"
+    client = FakeGitHubClient(
+        {repository.repository: [release([asset(filename)], tag="v0.20.0")]}
+    )
+
+    collection = collect_release_assets(config, client)
+
+    assert [
+        (artifact.channel, artifact.filename) for artifact in collection.artifacts
+    ] == [("cu130", filename)]
 
 
 @pytest.mark.parametrize("version", ["0.22.1", "0.23.0"])

@@ -34,8 +34,9 @@ The global channel list is a publication allowlist. Canonical names are:
 
 Wheels assigned to any other channel fail collection unless that channel is
 explicitly ignored by the repository. An optional repository `channels` list
-adds a further restriction; repositories do not need to repeat the global
-allowlist.
+restricts labeled wheels to those channels and publishes an unlabeled,
+Python-version-independent wheel to each listed channel. Repositories do not
+need to repeat the global allowlist.
 
 ## Repositories
 
@@ -63,7 +64,7 @@ Repository settings:
 | `projects` | Required | Projects admitted from release assets |
 | `pretty_name` | None | Human-readable label for the landing-page package list |
 | `access` | `"private"` | Whether public anonymous fallback is permitted |
-| `channels` | All configured channels | Optional additional channel restriction |
+| `channels` | All configured channels | Restrict labeled wheels and publish eligible unlabeled wheels to each listed channel |
 | `tag_regex` | `^(?P<version>.+)$` | Extract a policy version from a complete tag |
 | `minimum_release_version` | None | Inclusive lower release-version bound |
 | `maximum_release_version` | None | Inclusive upper release-version bound |
@@ -111,17 +112,27 @@ Stable post releases remain eligible.
 
 ## Artifact channels
 
-An explicit wheel local-version label such as `+cpu`, `+cu128`, `+cu12.4`, or
-`+cu.12.4` is authoritative. Collection admits channel-only labels and the
-canonical compound build schema, such as `+cpu.torch.2.10` or
-`+cu.12.8.torch.2.11`. Wheels with nonstandard local versions are skipped
-before mirroring.
+An explicit wheel local-version label such as `+cpu` or `+cu128` is
+authoritative. Compound local versions use their leading channel label.
 
 `ignored_channels` excludes matching wheels before the global publication
 allowlist is enforced. An ignored channel therefore does not need a global
 `[[channel]]` declaration.
 
-Bare wheels require a bounded unlabeled-channel rule:
+A repository can publish a Python-version-independent, unlabeled wheel to
+multiple indexes by listing its destination channels:
+
+```toml
+channels = ["cu126", "cu128", "cu129"]
+```
+
+The collector creates one index entry per channel, while the mirror downloads
+and stores the shared wheel and metadata exactly once. The wheel must use a
+`py3-none-any` or `py3-none-manylinux_*` tag and must not have a local-version
+label. A labeled wheel from the same repository is published only to its own
+channel, provided that channel is in the repository's `channels` list.
+
+Other bare wheels require a bounded unlabeled-channel rule:
 
 ```toml
 unlabeled_channel_rules = [
@@ -157,8 +168,9 @@ make a mismatched wheel acceptable to installers that enforce metadata and
 filename agreement.
 
 Some legacy producers published invalid wheel filenames containing repeated
-local-version `+` separators. Collection recognizes them only far enough to
-classify their local version as nonstandard, then skips them before mirroring.
+local-version `+` separators. Those filenames are normalized only for the
+index-facing package filename. Their source URLs and mirrored wheel bytes remain
+unchanged.
 
 ## Retained artifacts
 
