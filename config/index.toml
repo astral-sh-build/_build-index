@@ -164,7 +164,7 @@ access = "public"
 repository = "astral-sh-build/build-transformer-engine"
 pretty_name = "TransformerEngine"
 projects = ["transformer-engine"]
-minimum_release_version = "2.5"
+minimum_release_version = "2.16"
 channels = ["cu121", "cu124", "cu126", "cu128", "cu129", "cu130", "cu132"]
 access = "private"
 
@@ -172,21 +172,21 @@ access = "private"
 repository = "astral-sh-build/build-transformer-engine-cu12"
 pretty_name = "TransformerEngine CUDA 12 Core"
 projects = ["transformer-engine-cu12"]
-minimum_release_version = "2.5"
+minimum_release_version = "2.16"
 access = "private"
 
 [[repository]]
 repository = "astral-sh-build/build-transformer-engine-cu13"
 pretty_name = "TransformerEngine CUDA 13 Core"
 projects = ["transformer-engine-cu13"]
-minimum_release_version = "2.5"
+minimum_release_version = "2.16"
 access = "private"
 
 [[repository]]
 repository = "astral-sh-build/build-transformer-engine-torch"
 pretty_name = "TransformerEngine"
 projects = ["transformer-engine-torch"]
-minimum_release_version = "2.5"
+minimum_release_version = "2.16"
 access = "public"
 
 # Keep the two vLLM sources together. Astral builds remain authoritative for
