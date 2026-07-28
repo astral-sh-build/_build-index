@@ -202,6 +202,53 @@ def test_collect_release_assets_multicasts_transformer_engine_metapackage() -> N
 
 
 @pytest.mark.parametrize(
+    ("project", "local_version", "wheel_tag"),
+    [
+        ("transformer-engine", "", "py3-none-any"),
+        ("transformer-engine-cu12", "+cu.12.8", "py3-none-manylinux_2_28_x86_64"),
+        ("transformer-engine-cu13", "+cu.13.0", "py3-none-manylinux_2_28_x86_64"),
+        (
+            "transformer-engine-torch",
+            "+cu.12.8.torch.2.10",
+            "cp312-cp312-manylinux_2_28_x86_64",
+        ),
+    ],
+)
+def test_collect_release_assets_filters_legacy_transformer_engine_revisions(
+    project: str,
+    local_version: str,
+    wheel_tag: str,
+) -> None:
+    config = load_config(ROOT / "config" / "index.toml")
+    repository = next(
+        item for item in config.repositories if item.projects == (project,)
+    )
+    config = replace(config, repositories=(repository,))
+
+    def filename(version: str) -> str:
+        distribution = project.replace("-", "_")
+        return f"{distribution}-{version}{local_version}-{wheel_tag}.whl"
+
+    current = filename("2.16.0")
+    client = FakeGitHubClient(
+        {
+            repository.repository: [
+                release([asset(filename("2.5.0"), asset_id=1)], tag="v2.5"),
+                release([asset(filename("2.15.0"), asset_id=2)], tag="v2.15"),
+                release([asset(current, asset_id=3)], tag="v2.16"),
+                release([asset(current, asset_id=4)], tag="v2.16-r1"),
+            ]
+        }
+    )
+
+    collection = collect_release_assets(config, client)
+
+    assert collection.artifacts
+    assert {artifact.release for artifact in collection.artifacts} == {"v2.16-r1"}
+    assert {artifact.filename for artifact in collection.artifacts} == {current}
+
+
+@pytest.mark.parametrize(
     ("project", "cuda_version", "channel"),
     [
         ("transformer-engine-cu12", "12.1", "cu121"),
