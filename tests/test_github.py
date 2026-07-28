@@ -223,6 +223,7 @@ def test_collect_release_assets_routes_cuda_versioned_transformer_engine_cores(
     repository = next(
         item for item in config.repositories if item.projects == (project,)
     )
+    assert repository.channels is None
     assert not repository.multiplex
     config = replace(config, repositories=(repository,))
     filenames = [

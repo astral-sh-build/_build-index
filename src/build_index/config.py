@@ -153,19 +153,19 @@ def _load_repository(data: Any, index: int) -> RepositoryConfig:
     ):
         raise ConfigError(f"{context}.pretty_name must be a non-empty string")
     channels = _string_tuple(data, "channels", context) if "channels" in data else None
+    multiplex = "multiplex" in data
+    if multiplex:
+        if channels is not None:
+            raise ConfigError(f"{context}.multiplex cannot be combined with channels")
+        channels = _string_tuple(data, "multiplex", context)
     if not projects:
         raise ConfigError(f"{context}.projects must not be empty")
     _require_unique(projects, f"{context} project")
     if channels is not None:
         if not channels:
-            raise ConfigError(f"{context}.channels must not be empty when specified")
+            field = "multiplex" if multiplex else "channels"
+            raise ConfigError(f"{context}.{field} must not be empty when specified")
         _require_unique(channels, f"{context} channel")
-
-    multiplex = data.get("multiplex", False)
-    if not isinstance(multiplex, bool):
-        raise ConfigError(f"{context}.multiplex must be a boolean")
-    if multiplex and channels is None:
-        raise ConfigError(f"{context}.multiplex requires explicit channels")
 
     for project in projects:
         if canonicalize_name(project) != project:

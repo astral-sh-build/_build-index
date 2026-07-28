@@ -165,8 +165,7 @@ repository = "astral-sh-build/build-transformer-engine"
 pretty_name = "TransformerEngine"
 projects = ["transformer-engine"]
 minimum_release_version = "2.5"
-channels = ["cu121", "cu124", "cu126", "cu128", "cu129", "cu130", "cu132"]
-multiplex = true
+multiplex = ["cu121", "cu124", "cu126", "cu128", "cu129", "cu130", "cu132"]
 access = "private"
 
 [[repository]]
@@ -174,7 +173,6 @@ repository = "astral-sh-build/build-transformer-engine-cu12"
 pretty_name = "TransformerEngine CUDA 12 Core"
 projects = ["transformer-engine-cu12"]
 minimum_release_version = "2.5"
-channels = ["cu121", "cu124", "cu126", "cu128", "cu129"]
 access = "private"
 
 [[repository]]
@@ -182,7 +180,6 @@ repository = "astral-sh-build/build-transformer-engine-cu13"
 pretty_name = "TransformerEngine CUDA 13 Core"
 projects = ["transformer-engine-cu13"]
 minimum_release_version = "2.5"
-channels = ["cu130", "cu132"]
 access = "private"
 
 [[repository]]

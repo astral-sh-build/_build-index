@@ -96,8 +96,7 @@ def test_config_accepts_multiplexed_repository_channels(tmp_path: Path) -> None:
 [[repository]]
 repository = "astral-sh-build/build-transformer-engine"
 projects = ["transformer-engine"]
-channels = ["cu126", "cu128", "cu129"]
-multiplex = true
+multiplex = ["cu126", "cu128", "cu129"]
 """,
         encoding="utf-8",
     )
@@ -108,25 +107,40 @@ multiplex = true
     assert repository.multiplex is True
 
 
-def test_config_rejects_multiplex_without_explicit_channels(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("value", "message"),
+    [
+        ("true", "multiplex must be a list"),
+        ('"cu128"', "multiplex must be a list"),
+        ("[]", "multiplex must not be empty"),
+        ('["cu128", 1]', "multiplex must contain only strings"),
+        ('["cu128", "cu128"]', "duplicate .*channel: cu128"),
+        ('["cu999"]', "unknown channels: cu999"),
+    ],
+)
+def test_config_rejects_invalid_multiplex_channels(
+    tmp_path: Path,
+    value: str,
+    message: str,
+) -> None:
     path = tmp_path / "index.toml"
     path.write_text(
         CONFIG.read_text(encoding="utf-8")
-        + """
+        + f"""
 
 [[repository]]
 repository = "astral-sh-build/build-transformer-engine"
 projects = ["transformer-engine"]
-multiplex = true
+multiplex = {value}
 """,
         encoding="utf-8",
     )
 
-    with pytest.raises(ConfigError, match="multiplex requires explicit channels"):
+    with pytest.raises(ConfigError, match=message):
         load_config(path)
 
 
-def test_config_rejects_non_boolean_multiplex(tmp_path: Path) -> None:
+def test_config_rejects_multiplex_with_explicit_channels(tmp_path: Path) -> None:
     path = tmp_path / "index.toml"
     path.write_text(
         CONFIG.read_text(encoding="utf-8")
@@ -136,12 +150,12 @@ def test_config_rejects_non_boolean_multiplex(tmp_path: Path) -> None:
 repository = "astral-sh-build/build-transformer-engine"
 projects = ["transformer-engine"]
 channels = ["cu128"]
-multiplex = "true"
+multiplex = ["cu128"]
 """,
         encoding="utf-8",
     )
 
-    with pytest.raises(ConfigError, match="multiplex must be a boolean"):
+    with pytest.raises(ConfigError, match="multiplex cannot be combined with channels"):
         load_config(path)
 
 

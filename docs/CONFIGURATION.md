@@ -64,7 +64,7 @@ Repository settings:
 | `pretty_name` | None | Human-readable label for the landing-page package list |
 | `access` | `"private"` | Whether public anonymous fallback is permitted |
 | `channels` | All configured channels | Optional additional channel restriction |
-| `multiplex` | `false` | Publish one unlabeled, Python-version-independent wheel to every explicitly configured channel |
+| `multiplex` | None | Publish one unlabeled, Python-version-independent wheel to every listed channel |
 | `tag_regex` | `^(?P<version>.+)$` | Extract a policy version from a complete tag |
 | `minimum_release_version` | None | Inclusive lower release-version bound |
 | `maximum_release_version` | None | Inclusive upper release-version bound |
@@ -119,12 +119,17 @@ authoritative. Compound local versions use their leading channel label.
 allowlist is enforced. An ignored channel therefore does not need a global
 `[[channel]]` declaration.
 
-A repository can multicast a Python-version-independent, unlabeled wheel to
-multiple channels by setting `multiplex = true` and explicitly listing its
-`channels`. The collector creates one index entry per channel, while the mirror
-downloads and stores the shared wheel and metadata exactly once. Multiplexed
-wheels must use the `py3-none-any` or `py3-none-manylinux_*` wheel tags and must
-not have a local-version label.
+A repository can multicast a Python-version-independent, unlabeled wheel by
+listing its destination channels directly:
+
+```toml
+multiplex = ["cu126", "cu128", "cu129"]
+```
+
+The collector creates one index entry per channel, while the mirror downloads
+and stores the shared wheel and metadata exactly once. Multiplexed wheels must
+use the `py3-none-any` or `py3-none-manylinux_*` wheel tags and must not have a
+local-version label. A multiplexed repository cannot also specify `channels`.
 
 Bare wheels require a bounded unlabeled-channel rule:
 
