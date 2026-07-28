@@ -167,7 +167,7 @@ projects = ["transformer-engine"]
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
 minimum_release_version = "2.16"
 channels = ["cu121", "cu124", "cu126", "cu128", "cu129", "cu130", "cu132"]
-access = "private"
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-transformer-engine-cu12"
@@ -175,7 +175,7 @@ pretty_name = "TransformerEngine CUDA 12 Core"
 projects = ["transformer-engine-cu12"]
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
 minimum_release_version = "2.16"
-access = "private"
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-transformer-engine-cu13"
@@ -183,7 +183,7 @@ pretty_name = "TransformerEngine CUDA 13 Core"
 projects = ["transformer-engine-cu13"]
 tag_regex = '^v(?P<version>.+?)(?:-r[0-9]+)?$'
 minimum_release_version = "2.16"
-access = "private"
+access = "public"
 
 [[repository]]
 repository = "astral-sh-build/build-transformer-engine-torch"

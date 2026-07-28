@@ -223,6 +223,7 @@ def test_collect_release_assets_filters_legacy_transformer_engine_revisions(
     repository = next(
         item for item in config.repositories if item.projects == (project,)
     )
+    assert repository.access == "public"
     config = replace(config, repositories=(repository,))
 
     def filename(version: str) -> str:
