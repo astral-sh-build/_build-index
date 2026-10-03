@@ -109,6 +109,52 @@ def upstream_vllm_config():
     return replace(CONFIG, repositories=(repository,))
 
 
+@pytest.mark.parametrize(
+    ("version", "expected_channels"),
+    [
+        ("0.26.0", ["cu129", "cu130"]),
+        ("0.27.0", ["cu129", "cu130"]),
+        ("0.28.0", ["cu129", "cu130"]),
+        ("0.29.0", ["cu129", "cu130"]),
+        ("0.30.0", ["cu129", "cu130"]),
+        ("0.31.0", []),
+    ],
+)
+def test_collect_current_upstream_vllm_releases(
+    version: str, expected_channels: list[str]
+) -> None:
+    config = load_config(ROOT / "config" / "index.toml")
+    repository = next(
+        item for item in config.repositories if item.repository == "vllm-project/vllm"
+    )
+    config = replace(config, repositories=(repository,))
+    client = FakeGitHubClient(
+        {
+            repository.repository: [
+                release(
+                    [
+                        asset(
+                            f"vllm-{version}{label}-cp38-abi3-manylinux_2_28_x86_64.whl",
+                            asset_id=asset_id,
+                        )
+                        for asset_id, label in enumerate(
+                            ("", "+cu129", "+cpu", "+xpu"), start=1
+                        )
+                    ],
+                    tag=f"v{version}",
+                )
+            ]
+        }
+    )
+
+    collection = collect_release_assets(config, client)
+
+    assert (
+        sorted(artifact.channel for artifact in collection.artifacts)
+        == expected_channels
+    )
+
+
 def test_collect_release_assets_assigns_channels_and_ignores_non_wheels() -> None:
     client = FakeGitHubClient(
         {
